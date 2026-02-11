@@ -1,0 +1,208 @@
+'use client';
+
+import { useEffect, useState, useMemo } from 'react';
+import Link from 'next/link';
+import { useUser } from '@/firebase/auth/use-user';
+import type { Order, Vendor, MedicineRequest } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Package, CreditCard } from 'lucide-react';
+import GrabClubLoading from '@/components/layout/loading';
+import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import BlockedUserGuard from '@/components/blocked-user-guard';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+
+function OrdersPageContent() {
+  const { user, isLoading: isUserLoading } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const userOrdersQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.email) return null;
+    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending', 'accepted', 'out for delivery']));
+  }, [firestore, user]);
+  const { data: userOrders, isLoading: ordersLoading } = useCollection<Order>(userOrdersQuery);
+
+  const userRequestsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.email) return null;
+    return query(collection(firestore, 'medicineRequests'), where('userEmail', '==', user.email), where('status', '==', 'pending-review'));
+  }, [firestore, user]);
+  const { data: userRequests, isLoading: requestsLoading } = useCollection<MedicineRequest>(userRequestsQuery);
+  
+  const vendorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'vendors') : null, [firestore]);
+  const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
+
+  const allActiveItems = useMemo(() => {
+    const ordersWithMeta = (userOrders || []).map(o => ({
+      ...o,
+      type: 'order' as const,
+      date: new Date(o.orderTime as any)
+    }));
+    
+    const requestsWithMeta = (userRequests || []).map(req => ({
+      ...req,
+      type: 'request' as const,
+      date: new Date(req.createdAt as any),
+    }));
+
+    const combined = [...ordersWithMeta, ...requestsWithMeta];
+    return combined.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [userOrders, userRequests]);
+
+
+  if (isUserLoading || ordersLoading || requestsLoading || vendorsLoading) {
+    return <GrabClubLoading />;
+  }
+  
+  if (allActiveItems.length === 0) {
+    return (
+      <div className="container py-16 text-center">
+        <Package className="w-16 h-16 mx-auto text-muted-foreground" />
+        <h1 className="mt-4 text-3xl font-headline font-bold">No Active Orders</h1>
+        <p className="mt-2 text-muted-foreground">Your pending and active orders will appear here.</p>
+      </div>
+    );
+  }
+
+  const getVendorName = (vendorId: string) => {
+    const vendor = vendors?.find(v => v.id === vendorId);
+    return vendor ? vendor.name : 'Unknown Vendor';
+  };
+
+  const getStatusBadgeVariant = (status: Order['status']): "default" | "secondary" | "destructive" => {
+    switch (status) {
+      case 'rejected':
+        return 'destructive';
+      case 'delivered':
+      case 'accepted':
+        return 'default';
+      case 'out for delivery':
+      case 'pending payment':
+      default:
+        return 'secondary';
+    }
+  };
+  
+  const getDisplayStatus = (status: Order['status']) => {
+    if (status === 'pending') return 'Awaiting Confirmation';
+    return status;
+  }
+
+  return (
+    <div className="container py-8 sm:py-12">
+      <h1 className="text-3xl font-headline font-bold tracking-tight text-foreground sm:text-4xl mb-8">
+        Your Active Orders
+      </h1>
+      <div className="space-y-6">
+        {allActiveItems.map(item => {
+          if (item.type === 'request') {
+             return (
+               <Card key={item.id} className="overflow-hidden">
+                 <CardHeader className="flex flex-row items-start justify-between gap-4 bg-muted/30">
+                    <div>
+                        <CardTitle className="text-lg">Medicine Request</CardTitle>
+                        <CardDescription>
+                            Submitted on {new Date(item.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </CardDescription>
+                    </div>
+                    <Badge variant="secondary" className="capitalize bg-blue-600 text-white border-transparent hover:bg-blue-700">Pending Review</Badge>
+                 </CardHeader>
+                 <CardContent className="p-6 space-y-4">
+                     <div className="text-sm">
+                        <p className="font-medium text-muted-foreground">From</p>
+                        <p className="font-semibold">{getVendorName('pharmaplus')}</p>
+                    </div>
+                    <Separator />
+                    <div className="space-y-2 text-sm text-muted-foreground">
+                      {item.submissionType === 'upload' ? 'Prescription uploaded for review.' : `You requested: "${item.medicinesText?.substring(0, 50)}..."`}
+                    </div>
+                 </CardContent>
+                 <CardFooter className="bg-muted/30 p-6 flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Awaiting vendor response...</span>
+                 </CardFooter>
+               </Card>
+             );
+           }
+
+           const order = item as Order;
+           const isActive = order.status === 'accepted' || order.status === 'out for delivery';
+           const displayStatus = getDisplayStatus(order.status);
+          return (
+            <Card key={order.id} className={cn(
+              "overflow-hidden",
+              isActive && "bg-destructive/10 border-destructive/30 animate-pulse"
+            )}>
+              <CardHeader className={cn(
+                "flex flex-row items-start justify-between gap-4",
+                isActive ? "bg-transparent" : "bg-muted/30"
+              )}>
+                <div>
+                  <CardTitle className="text-lg">Order #{order.id.replace('ORD-', '')}</CardTitle>
+                  <CardDescription>
+                    {new Date(order.orderTime as any).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </CardDescription>
+                </div>
+                <Badge
+                  variant={getStatusBadgeVariant(order.status)}
+                  className={cn('capitalize', {
+                    'bg-green-600 text-white border-transparent hover:bg-green-700': order.status === 'delivered' || order.status === 'accepted',
+                    'bg-blue-600 text-white border-transparent hover:bg-blue-700': order.status === 'pending',
+                    'bg-sky-500 text-white border-transparent hover:bg-sky-600': order.status === 'out for delivery',
+                  })}
+                >
+                  {displayStatus}
+                </Badge>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                 {order.verificationCode && (
+                  <div className="p-3 text-center bg-muted/50 rounded-lg border">
+                      <p className="text-sm text-muted-foreground">Show this code at delivery</p>
+                      <p className="text-3xl font-bold tracking-widest font-headline text-primary">{order.verificationCode}</p>
+                  </div>
+                )}
+                <div className="text-sm">
+                  <p className="font-medium text-muted-foreground">From</p>
+                  <p className="font-semibold">{getVendorName(order.vendorId)}</p>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  {order.items.map((item, index) => (
+                    <div key={`${item.productId || item.name}-${index}`} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{item.name} x {item.quantity}</span>
+                      <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter className={cn(
+                "bg-muted/30 p-6 flex justify-between items-center",
+                isActive ? "bg-transparent" : "bg-muted/30"
+              )}>
+                <span className="text-sm text-muted-foreground">Awaiting vendor response...</span>
+                <div className="text-right">
+                  <span className="text-xl font-bold font-headline">₹{order.total.toFixed(2)}</span>
+                </div>
+              </CardFooter>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function OrdersPage() {
+    return (
+        <BlockedUserGuard>
+            <OrdersPageContent />
+        </BlockedUserGuard>
+    )
+}
