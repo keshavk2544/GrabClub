@@ -25,6 +25,7 @@ const lineItemSchema = z.object({
 
 const createOrderSchema = z.object({
   items: z.array(lineItemSchema).min(1, "At least one item is required."),
+  couponCode: z.string().optional(),
 });
 
 type CreateOrderDialogProps = {
@@ -43,6 +44,7 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
         resolver: zodResolver(createOrderSchema),
         defaultValues: {
             items: [{ name: '', quantity: 1, price: 0 }],
+            couponCode: '',
         },
     });
 
@@ -53,13 +55,16 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
 
     const watchedItems = form.watch('items');
     const deliveryFee = 50.00;
-    const total = watchedItems.reduce((acc, item) => acc + (item.price || 0) * (item.quantity || 0), 0) + deliveryFee;
+    const subtotal = watchedItems.reduce((acc, item) => acc + (item.price || 0) * (item.quantity || 0), 0);
+    const total = subtotal + deliveryFee;
 
     useEffect(() => {
         if (!isOpen) {
-            form.reset({ items: [{ name: '', quantity: 1, price: 0 }] });
+            form.reset({ items: [{ name: '', quantity: 1, price: 0 }], couponCode: '' });
+        } else if (request) {
+            form.setValue('couponCode', request.couponCode || '');
         }
-    }, [isOpen, form]);
+    }, [isOpen, form, request]);
 
     const onSubmit = async (data: z.infer<typeof createOrderSchema>) => {
         if (!request || !firestore) return;
@@ -80,6 +85,10 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
             deliveryTimeSlot: request.deliveryTimeSlot,
             orderTime: new Date(),
         };
+
+        if (data.couponCode) {
+            newOrder.couponCode = data.couponCode;
+        }
 
         try {
             const orderRef = doc(firestore, 'orders', newOrder.id);
@@ -122,6 +131,12 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
                             {request.medicinesText}
                         </div>
                     )}
+                    {request.couponCode && (
+                        <div className="p-3 border rounded-md bg-amber-500/10 border-amber-500/20">
+                            <p className="text-sm font-semibold text-amber-500">User Submitted Coupon</p>
+                            <p className="font-mono text-amber-600">{request.couponCode}</p>
+                        </div>
+                    )}
                 </div>
 
                 <Form {...form}>
@@ -150,8 +165,7 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
             <DialogFooter>
                 <div className="w-full flex justify-between items-center">
                     <div className="text-lg font-bold">
-                        Total: ₹{total.toFixed(2)}
-                        <span className="text-sm font-normal text-muted-foreground ml-2">(incl. ₹{deliveryFee.toFixed(2)} delivery)</span>
+                        Item Total: ₹{subtotal.toFixed(2)}
                     </div>
                      <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
