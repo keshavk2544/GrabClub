@@ -18,7 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Upload, FileText, Loader2, Printer } from 'lucide-react';
+import { Upload, FileText, Loader2, Printer, CreditCard } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { vendors } from '@/lib/data';
@@ -150,56 +150,138 @@ export default function CyberCafePrintForm() {
     }, [pageCount, watchedPrintType]);
     
     const onSubmit = async (data: z.infer<typeof printJobSchema>) => {
-        if (!data.file || pageCount === null || !user || !fileDataUrl || totalCost === null) {
+        if (!data.file || pageCount === null || !user || !user.email || !fileDataUrl || totalCost === null) {
            toast({ variant: 'destructive', title: 'Error', description: 'Please complete all fields.' });
            return;
         }
 
         setIsSubmitting(true);
         
-        const newPrintRequest: Omit<PrintRequest, 'id'> = {
-          userId: user.uid,
-          userName: user.displayName || "Unknown User",
-          phone: data.phone,
-          fileName: data.file.name,
-          fileDataUrl: fileDataUrl,
-          printType: data.printType,
-          pageCount: pageCount,
-          totalCost: totalCost,
-          status: 'pending',
-          createdAt: new Date(),
-          pickupLocation: data.pickupLocation,
-          pickupTimeSlot: data.pickupTimeSlot,
+        const loadScript = (src: string) => {
+            return new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    resolve(true);
+                };
+                script.onerror = () => {
+                    resolve(false);
+                };
+                document.body.appendChild(script);
+            });
         };
 
-        console.log("New Print Request:", newPrintRequest);
-        
-        try {
-          if (!firestore) throw new Error("Firestore is not available.");
-          await addDoc(collection(firestore, 'printRequests'), newPrintRequest);
+        const res = await loadScript('https://checkout.razorpay.com/v1/checkout.js');
 
-          setTimeout(() => {
-              toast({
-                  variant: 'success',
-                  title: 'Print Job Submitted!',
-                  description: `Your document has been sent for printing. Total cost: ₹${totalCost?.toFixed(2)}`,
-              });
-              setIsSubmitting(false);
-              form.reset();
-              setPageCount(null);
-              setTotalCost(null);
-              setFileDataUrl(null);
-              const fileInput = document.getElementById('pdf-file') as HTMLInputElement;
-              if(fileInput) fileInput.value = '';
-          }, 1500);
+        if (!res) {
+            toast({
+                variant: 'destructive',
+                title: 'Payment Gateway Error',
+                description: 'Could not load the payment script. Please check your internet connection.',
+            });
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/razorpay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: totalCost }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Could not connect to payment gateway.');
+            }
+
+            const razorpayOrder = await response.json();
+
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+                amount: razorpayOrder.amount.toString(),
+                currency: "INR",
+                name: "GrabClub - Print Job",
+                description: `Payment for ${data.file.name}`,
+                order_id: razorpayOrder.id,
+                handler: async function (paymentResponse: any) {
+                    const verifyRes = await fetch('/api/razorpay/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            razorpay_order_id: paymentResponse.razorpay_order_id,
+                            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                            razorpay_signature: paymentResponse.razorpay_signature,
+                        }),
+                    });
+
+                    if (!verifyRes.ok) {
+                        const errorData = await verifyRes.json().catch(() => ({}));
+                        throw new Error(errorData.error || 'Payment verification failed.');
+                    }
+                    
+                    const newPrintRequest: Omit<PrintRequest, 'id'> = {
+                        userId: user.uid,
+                        userName: user.displayName || "Unknown User",
+                        phone: data.phone,
+                        fileName: data.file.name,
+                        fileDataUrl: fileDataUrl,
+                        printType: data.printType,
+                        pageCount: pageCount,
+                        totalCost: totalCost,
+                        status: 'pending',
+                        createdAt: new Date(),
+                        pickupLocation: data.pickupLocation,
+                        pickupTimeSlot: data.pickupTimeSlot,
+                    };
+
+                    if (!firestore) throw new Error("Firestore is not available.");
+                    await addDoc(collection(firestore, 'printRequests'), newPrintRequest);
+
+                    toast({
+                        variant: 'success',
+                        title: 'Payment Successful!',
+                        description: `Your print job has been submitted.`,
+                    });
+                    
+                    setIsSubmitting(false);
+                    form.reset();
+                    setPageCount(null);
+                    setTotalCost(null);
+                    setFileDataUrl(null);
+                    const fileInput = document.getElementById('pdf-file') as HTMLInputElement;
+                    if(fileInput) fileInput.value = '';
+                },
+                prefill: {
+                    name: user.displayName || '',
+                    email: user.email || '',
+                    contact: data.phone
+                },
+                theme: {
+                    color: "#FE9D15"
+                },
+                modal: {
+                    ondismiss: function() {
+                        setIsSubmitting(false);
+                        toast({ variant: 'destructive', title: 'Payment Cancelled', description: 'Your print job was not submitted.' });
+                    }
+                }
+            };
+
+            const rzp = new (window as any).Razorpay(options);
+            rzp.on('payment.failed', function (paymentResponse: any) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Payment Failed',
+                    description: paymentResponse.error.description || 'Please try again.',
+                });
+                setIsSubmitting(false);
+            });
+            rzp.open();
 
         } catch (error) {
-           console.error("Failed to save print job request", error);
-            toast({
-                variant: "destructive",
-                title: "Uh oh! Something went wrong.",
-                description: "Could not submit your request.",
-            });
+            console.error('Payment process failed:', error);
+            toast({ variant: "destructive", title: "Error", description: (error as Error).message });
             setIsSubmitting(false);
         }
     };
@@ -342,7 +424,7 @@ export default function CyberCafePrintForm() {
                                             <div className="flex justify-between items-center">
                                                 <div>
                                                     <span className="font-medium text-lg">Total Cost:</span>
-                                                    <p className="text-xs text-muted-foreground">Includes ₹{DELIVERY_FEE.toFixed(2)} delivery charge</p>
+                                                    <p className="text-xs text-muted-foreground">Includes ₹{DELIVERY_FEE.toFixed(2)} pickup charge</p>
                                                 </div>
                                                 <span className="text-2xl font-bold font-headline text-primary">₹{totalCost.toFixed(2)}</span>
                                             </div>
@@ -353,7 +435,7 @@ export default function CyberCafePrintForm() {
                             )}
 
                             <Button type="submit" className="w-full" disabled={isSubmitting || !form.formState.isValid || isProcessing}>
-                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting Request...</> : <><Printer className="mr-2 h-4 w-4" />Submit Print Job</> }
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing Payment...</> : <><CreditCard className="mr-2 h-4 w-4" />Pay &amp; Submit Job</> }
                             </Button>
                         </form>
                         </Form>
