@@ -46,8 +46,16 @@ function HistoryPageContent() {
 
 
   const allHistoryItems = useMemo(() => {
-    const ordersWithMeta = (userOrders || []).map(o => ({ ...o, type: 'order' as const, date: new Date(o.orderTime as any) }));
-    const requestsWithMeta = (userMedicineRequests || []).map(req => ({ ...req, type: 'request' as const, date: new Date(req.createdAt as any) }));
+    const ordersWithMeta = (userOrders || []).map(o => ({ 
+        ...o, 
+        type: 'order' as const, 
+        date: (o.orderTime as any)?.toDate ? (o.orderTime as any).toDate() : new Date(o.orderTime as any) 
+    }));
+    const requestsWithMeta = (userMedicineRequests || []).map(req => ({ 
+        ...req, 
+        type: 'request' as const, 
+        date: (req.createdAt as any)?.toDate ? (req.createdAt as any).toDate() : new Date(req.createdAt as any) 
+    }));
 
     const combined = [...ordersWithMeta, ...requestsWithMeta];
     return combined.sort((a, b) => b.date.getTime() - a.date.getTime());
@@ -186,7 +194,7 @@ function HistoryPageContent() {
                 <div>
                   <CardTitle className="text-lg">Order #{order.id.replace('ORD-', '')}</CardTitle>
                   <CardDescription>
-                    {order.orderTime.toLocaleDateString('en-US', {
+                    {order.date.toLocaleDateString('en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',
