@@ -20,7 +20,7 @@ import { CreateOrderDialog } from '@/components/medicine/create-order-dialog';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc } from 'firebase/firestore';
 
 
@@ -29,8 +29,13 @@ const VENDOR_ID = 'pharmaplus';
 export default function MedicineOrdersTab() {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isCreateOrderOpen, setCreateOrderOpen] = useState(false);
+    const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState<MedicineRequest | null>(null);
+
+    const vendorRef = useMemoFirebase(() => 
+      firestore ? doc(firestore, 'vendors', VENDOR_ID) : null
+    , [firestore]);
+    const { data: vendor, isLoading: vendorIsLoading } = useDoc<Vendor>(vendorRef);
 
     const requestsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'medicineRequests')) : null
@@ -42,7 +47,7 @@ export default function MedicineOrdersTab() {
     , [firestore]);
     const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
-    const isLoading = requestsLoading || ordersLoading;
+    const isLoading = requestsLoading || ordersLoading || vendorIsLoading;
 
     const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
         if (!firestore) return;
@@ -215,6 +220,17 @@ export default function MedicineOrdersTab() {
                                             ))}
                                        </div>
                                    </CardContent>
+                                   {vendor?.deliveryType === 'self' && (
+                                     <CardFooter>
+                                        <Button
+                                            size="sm"
+                                            className="w-full"
+                                            onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                                        >
+                                            <CheckCircle className="mr-2 h-4 w-4" /> Mark as Delivered
+                                        </Button>
+                                    </CardFooter>
+                                   )}
                                </Card>
                            ))
                        ) : (

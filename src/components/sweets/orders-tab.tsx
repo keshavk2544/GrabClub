@@ -134,6 +134,18 @@ export default function SweetsOrdersTab() {
                                     </div>
                                 ))}
                             </div>
+                            {vendor?.deliveryType === 'self' && (
+                                <>
+                                    <Separator className="my-2" />
+                                    <Button
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                                    >
+                                        <Check className="mr-2 h-4 w-4" /> Mark as Delivered
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     ))
                 ) : (
