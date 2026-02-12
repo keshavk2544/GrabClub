@@ -3,16 +3,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import type { Order } from '@/lib/types';
+import { collection, doc, query, where, getDocs, writeBatch, updateDoc } from 'firebase/firestore';
+import type { Order, Coupon } from '@/lib/types';
 import GrabClubLoading from '@/components/layout/loading';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Ticket, CheckCircle } from 'lucide-react';
 import { useUser } from '@/firebase/auth/use-user';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function PaymentPage() {
   const params = useParams();
@@ -26,6 +28,65 @@ export default function PaymentPage() {
   const { data: order, isLoading: isOrderLoading, error } = useDoc<Order>(orderRef);
   
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+  const handleApplyCoupon = async () => {
+    if (!order || !couponCode.trim() || !firestore) return;
+    setIsApplyingCoupon(true);
+    
+    const code = couponCode.trim().toUpperCase();
+    
+    const couponsRef = collection(firestore, 'coupons');
+    const q = query(couponsRef, where('code', '==', code));
+    
+    try {
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
+        toast({ variant: 'destructive', title: "Invalid Coupon" });
+        setIsApplyingCoupon(false);
+        return;
+      }
+
+      const couponDoc = querySnapshot.docs[0];
+      const coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
+
+      if (coupon.timesUsed >= coupon.usageLimit) {
+        toast({ variant: 'destructive', title: "Coupon Expired" });
+        setIsApplyingCoupon(false);
+        return;
+      }
+      
+      const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+      if (order.total > subtotal) { // Check if a delivery fee was applied
+        const batch = writeBatch(firestore);
+
+        const couponRef = doc(firestore, 'coupons', coupon.id);
+        batch.update(couponRef, { timesUsed: coupon.timesUsed + 1 });
+        
+        if(orderRef) {
+             batch.update(orderRef, {
+                total: subtotal,
+                couponApplied: true,
+                couponCode: code,
+            });
+        }
+       
+        await batch.commit();
+        toast({ variant: 'success', title: "Coupon Applied!", description: "Free delivery unlocked." });
+      } else {
+        toast({ variant: 'default', title: "No Delivery Fee", description: "This order already has free delivery." });
+      }
+
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      toast({ variant: 'destructive', title: "Error", description: "Could not apply coupon." });
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
 
   const handlePayment = async () => {
     if (!order) return;
@@ -151,6 +212,9 @@ export default function PaymentPage() {
       </div>
     );
   }
+  
+  const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const deliveryFee = 50.00;
 
   return (
     <div className="container py-12 sm:py-16">
@@ -169,6 +233,45 @@ export default function PaymentPage() {
                             </div>
                         ))}
                     </div>
+                    <Separator />
+                     <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span>₹{subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Delivery Fee</span>
+                             {order.couponApplied ? (
+                                <span className="text-green-500 font-semibold"><s>₹{deliveryFee.toFixed(2)}</s> FREE</span>
+                            ) : (
+                                <span>₹{deliveryFee.toFixed(2)}</span>
+                            )}
+                        </div>
+                    </div>
+                    <Separator />
+                    {!order.couponApplied ? (
+                        <div className="space-y-2 pt-2">
+                            <Label htmlFor="coupon-code" className="text-sm font-medium flex items-center gap-2"><Ticket className="w-4 h-4" /> Apply Coupon</Label>
+                             <div className="flex gap-2">
+                                <Input 
+                                    id="coupon-code" 
+                                    placeholder="Enter code" 
+                                    value={couponCode}
+                                    onChange={(e) => setCouponCode(e.target.value)}
+                                    disabled={isApplyingCoupon}
+                                />
+                                <Button onClick={handleApplyCoupon} disabled={isApplyingCoupon || !couponCode}>
+                                    {isApplyingCoupon && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Apply
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                         <div className="text-sm font-semibold text-green-500 flex items-center justify-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
+                            <CheckCircle className="w-4 h-4" />
+                            Coupon for Free Delivery Applied!
+                        </div>
+                    )}
                     <Separator />
                     <div className="flex justify-between font-bold text-lg">
                         <span>Total Amount</span>
