@@ -5,7 +5,7 @@ import { useUser } from '@/firebase/auth/use-user';
 import type { Order, Vendor } from '@/lib/types';
 import Link from 'next/link';
 import { Button } from './ui/button';
-import { TicketCheck, ChevronRight, Clock } from 'lucide-react';
+import { TicketCheck, ChevronRight, Clock, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 import { usePathname } from 'next/navigation';
@@ -19,7 +19,7 @@ export default function ActiveOrderTracker() {
 
   const userOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
-    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email));
+    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending', 'pending payment', 'accepted', 'out for delivery']));
   }, [firestore, user]);
   const { data: userOrders, isLoading: ordersLoading } = useCollection<Order>(userOrdersQuery);
 
@@ -37,11 +37,13 @@ export default function ActiveOrderTracker() {
     let ordersModified = false;
 
     userOrders.forEach(order => {
-        const orderTime = (order.orderTime as any).toDate ? (order.orderTime as any).toDate().getTime() : new Date(order.orderTime as any).getTime();
-        if (order.status === 'pending' && orderTime < twelveHoursAgo) {
-            const orderRef = doc(firestore, 'orders', order.id);
-            batch.update(orderRef, { status: 'rejected', rejectionReason: 'vendor_unavailable' });
-            ordersModified = true;
+        if (order.status === 'pending') {
+            const orderTime = (order.orderTime as any).toDate ? (order.orderTime as any).toDate().getTime() : new Date(order.orderTime as any).getTime();
+            if (orderTime < twelveHoursAgo) {
+                const orderRef = doc(firestore, 'orders', order.id);
+                batch.update(orderRef, { status: 'rejected', rejectionReason: 'vendor_unavailable' });
+                ordersModified = true;
+            }
         }
     });
 
@@ -60,26 +62,31 @@ export default function ActiveOrderTracker() {
     return () => clearInterval(interval);
   }, [checkAndRejectOldOrders]);
 
-  const activeOrders = useMemo(() => 
-    userOrders
-      ? userOrders
-          .filter(order => order.status === 'accepted' || order.status === 'out for delivery')
-          .sort((a, b) => (b.orderTime as any).toDate().getTime() - (a.orderTime as any).toDate().getTime())
-      : [],
-    [userOrders]
-  );
-  
-  const pendingOrders = useMemo(() =>
-    userOrders
-      ? userOrders
-          .filter(order => order.status === 'pending')
-          .sort((a, b) => (b.orderTime as any).toDate().getTime() - (a.orderTime as any).toDate().getTime())
-      : [],
-    [userOrders]
-  );
+  const allTrackedOrders = useMemo(() => {
+    if (!userOrders) return [];
+    
+    const ordersWithType = userOrders.map(order => {
+        let type: 'paymentPending' | 'active' | 'pending' | null = null;
+        if (order.status === 'pending payment') type = 'paymentPending';
+        else if (order.status === 'accepted' || order.status === 'out for delivery') type = 'active';
+        else if (order.status === 'pending') type = 'pending';
+        return { ...order, type };
+    }).filter(o => o.type !== null);
 
-  const hasActiveOrders = activeOrders.length > 0;
-  const hasPendingOrders = pendingOrders.length > 0;
+    // Sort by type priority then time
+    const typePriority = { 'paymentPending': 1, 'active': 2, 'pending': 3 };
+    
+    return ordersWithType.sort((a, b) => {
+        const priorityA = typePriority[a.type!];
+        const priorityB = typePriority[b.type!];
+        if (priorityA !== priorityB) return priorityA - priorityB;
+        
+        const timeA = (a.orderTime as any).toDate ? (a.orderTime as any).toDate().getTime() : new Date(a.orderTime as any).getTime();
+        const timeB = (b.orderTime as any).toDate ? (b.orderTime as any).toDate().getTime() : new Date(b.orderTime as any).getTime();
+        return timeB - timeA;
+    });
+
+  }, [userOrders]);
   
   const isLoading = ordersLoading || vendorsLoading;
 
@@ -87,87 +94,50 @@ export default function ActiveOrderTracker() {
     return null;
   }
 
-  if (!hasActiveOrders && !hasPendingOrders) {
+  if (!allTrackedOrders || allTrackedOrders.length === 0) {
     return null;
   }
 
   const getVendor = (vendorId: string) => vendors?.find(v => v.id === vendorId);
 
-  // Render split view if both active and pending orders exist
-  if (hasActiveOrders && hasPendingOrders) {
-    const firstActive = activeOrders[0];
-    const firstPending = pendingOrders[0];
-    const activeVendor = getVendor(firstActive.vendorId);
-    const pendingVendor = getVendor(firstPending.vendorId);
-
-    return (
-        <div className={cn(
-            "fixed bottom-16 left-0 z-40 w-full p-2 md:hidden",
-            "transition-all duration-500 ease-in-out"
-        )}>
-            <div className="flex gap-2 max-w-lg mx-auto">
-                {/* Pending Order Half */}
-                <div className="w-1/2">
-                    <div className="relative">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl blur opacity-75 animate-pulse-slow"></div>
-                        <div className="relative p-3 bg-card/80 backdrop-blur-xl border border-blue-500/30 rounded-xl shadow-2xl h-full">
-                            <Link href="/orders" className="flex items-center justify-between gap-2 h-full">
-                                <div className="flex items-center gap-2">
-                                    <div className="bg-sky-500/20 p-2 rounded-lg">
-                                        <Clock className="h-5 w-5 text-sky-400 animate-spin-slow" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold text-muted-foreground truncate">{pendingVendor?.name || 'Your Order'}</p>
-                                        <p className="font-bold text-xs leading-tight text-sky-400">
-                                            Pending
-                                        </p>
-                                    </div>
-                                </div>
-                                <ChevronRight className="h-5 w-5 flex-shrink-0" />
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Active Order Half */}
-                <div className="w-1/2">
-                    <div className="relative">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-75 animate-pulse-slow"></div>
-                        <div className="relative p-3 bg-card/80 backdrop-blur-xl border border-green-500/30 rounded-xl shadow-2xl h-full">
-                           <Link href="/orders" className="flex items-center justify-between gap-2 h-full">
-                                <div className="flex items-center gap-2">
-                                    <div className="bg-green-500/20 p-2 rounded-lg">
-                                        <TicketCheck className="h-5 w-5 text-green-400" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold text-muted-foreground truncate">{activeVendor?.name || 'Your Order'}</p>
-                                        <div className="flex items-center gap-2">
-                                          <p className="font-bold text-xs leading-tight tracking-widest text-green-400">{firstActive.verificationCode}</p>
-                                          <p className="font-bold text-xs text-green-400">Confirmed</p>
+  return (
+    <div className={cn(
+        "fixed bottom-16 left-0 z-40 w-full p-2 md:hidden",
+        "transition-all duration-500 ease-in-out"
+    )}>
+        <Carousel className="w-full max-w-lg mx-auto" opts={{ loop: allTrackedOrders.length > 1 }}>
+            <CarouselContent>
+                {allTrackedOrders.map((order) => {
+                    const vendor = getVendor(order.vendorId);
+                    return (
+                        <CarouselItem key={order.id}>
+                            {order.type === 'paymentPending' && (
+                                <div className="relative">
+                                    <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl blur opacity-75 animate-pulse-slow"></div>
+                                    <div className="relative p-3 bg-card/80 backdrop-blur-xl border border-amber-500/30 rounded-xl shadow-2xl">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-amber-500/20 p-2 rounded-lg">
+                                                    <CreditCard className="h-6 w-6 text-amber-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-semibold text-muted-foreground">{vendor?.name || 'Your Order'}</p>
+                                                    <p className="font-bold text-sm leading-tight text-amber-400">
+                                                        Payment Required
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">Total: ₹{order.total.toFixed(2)}</p>
+                                                </div>
+                                            </div>
+                                            <Link href={`/payment/${order.id}`} passHref>
+                                                <Button variant="ghost" size="sm" className="h-auto px-3 py-1 bg-primary/10 text-primary hover:bg-primary/20">
+                                                    Pay Now <ChevronRight className="h-4 w-4 ml-1" />
+                                                </Button>
+                                            </Link>
                                         </div>
                                     </div>
                                 </div>
-                                <ChevronRight className="h-5 w-5 flex-shrink-0" />
-                            </Link>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-  } else if (hasActiveOrders) {
-    // Render full carousel for active orders only
-    return (
-        <div className={cn(
-            "fixed bottom-16 left-0 z-40 w-full p-2 md:hidden",
-            "transition-all duration-500 ease-in-out"
-        )}>
-            <Carousel className="w-full max-w-lg mx-auto" opts={{ loop: activeOrders.length > 1 }}>
-                <CarouselContent>
-                    {activeOrders.map((order) => {
-                        const vendor = getVendor(order.vendorId);
-                        return (
-                            <CarouselItem key={order.id}>
+                            )}
+                            {order.type === 'active' && (
                                  <div className="relative">
                                     <div className="absolute -inset-1 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl blur opacity-75 animate-pulse-slow"></div>
                                     <div className="relative p-3 bg-card/80 backdrop-blur-xl border border-green-500/30 rounded-xl shadow-2xl">
@@ -185,13 +155,13 @@ export default function ActiveOrderTracker() {
                                                     <p className="text-xs text-muted-foreground">{order.deliveryTimeSlot || (order.status === 'accepted' ? 'Preparing...' : 'On its way!')}</p>
                                                 </div>
                                             </div>
-                                            <Link href="/orders" passHref>
+                                             <Link href="/orders" passHref>
                                                 <Button variant="ghost" size="icon" className="h-10 w-10 relative">
-                                                    {activeOrders.length > 1 && (
+                                                    {allTrackedOrders.length > 1 && (
                                                         <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
                                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                                                         <span className="relative inline-flex items-center justify-center rounded-full h-4 w-4 bg-sky-500 text-xs font-bold text-white">
-                                                            {activeOrders.length}
+                                                            {allTrackedOrders.length}
                                                         </span>
                                                         </span>
                                                     )}
@@ -201,26 +171,8 @@ export default function ActiveOrderTracker() {
                                         </div>
                                     </div>
                                 </div>
-                            </CarouselItem>
-                        )
-                    })}
-                </CarouselContent>
-            </Carousel>
-        </div>
-    );
-  } else if (hasPendingOrders) {
-    // Render full carousel for pending orders only
-     return (
-        <div className={cn(
-            "fixed bottom-16 left-0 z-40 w-full p-2 md:hidden",
-            "transition-all duration-500 ease-in-out"
-        )}>
-            <Carousel className="w-full max-w-lg mx-auto" opts={{ loop: pendingOrders.length > 1 }}>
-                <CarouselContent>
-                    {pendingOrders.map((order) => {
-                        const vendor = getVendor(order.vendorId);
-                        return (
-                            <CarouselItem key={order.id}>
+                            )}
+                            {order.type === 'pending' && (
                                  <div className="relative">
                                     <div className="absolute -inset-1 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl blur opacity-75 animate-pulse-slow"></div>
                                     <div className="relative p-3 bg-card/80 backdrop-blur-xl border border-blue-500/30 rounded-xl shadow-2xl">
@@ -239,11 +191,11 @@ export default function ActiveOrderTracker() {
                                             </div>
                                             <Link href="/orders" passHref>
                                                 <Button variant="ghost" size="icon" className="h-10 w-10 relative">
-                                                    {pendingOrders.length > 1 && (
+                                                    {allTrackedOrders.length > 1 && (
                                                         <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
                                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
                                                         <span className="relative inline-flex items-center justify-center rounded-full h-4 w-4 bg-sky-500 text-xs font-bold text-white">
-                                                            {pendingOrders.length}
+                                                            {allTrackedOrders.length}
                                                         </span>
                                                         </span>
                                                     )}
@@ -253,14 +205,12 @@ export default function ActiveOrderTracker() {
                                         </div>
                                     </div>
                                 </div>
-                            </CarouselItem>
-                        )
-                    })}
-                </CarouselContent>
-            </Carousel>
-        </div>
-      );
-  }
-
-  return null;
+                            )}
+                        </CarouselItem>
+                    )
+                })}
+            </CarouselContent>
+        </Carousel>
+    </div>
+  );
 }
