@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import type { Product } from '@/lib/types';
+import type { Product, Vendor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import {
   addDoc,
@@ -85,8 +85,35 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       try {
         const vendorsCollection = collection(firestore, 'vendors');
         const snapshot = await getDocs(query(vendorsCollection, limit(1)));
+        
         if (snapshot.empty) {
           await seedDatabase();
+        } else {
+          // Data migration check for existing vendors
+          const allVendorsSnapshot = await getDocs(vendorsCollection);
+          const batch = writeBatch(firestore);
+          let needsUpdate = false;
+          
+          allVendorsSnapshot.forEach(vendorDoc => {
+            const vendorData = vendorDoc.data() as Vendor;
+            if (vendorData.deliveryType === undefined) {
+              const seedVendor = initialVendors.find(v => v.id === vendorDoc.id);
+              if (seedVendor && seedVendor.deliveryType) {
+                const vendorRef = doc(firestore, 'vendors', vendorDoc.id);
+                batch.update(vendorRef, { deliveryType: seedVendor.deliveryType });
+                needsUpdate = true;
+              }
+            }
+          });
+
+          if (needsUpdate) {
+            await batch.commit();
+            console.log("Vendor `deliveryType` migration complete.");
+            toast({
+              title: "System Update",
+              description: "Vendor data has been successfully updated.",
+            });
+          }
         }
         
         const q = query(collectionGroup(firestore, 'products'));
@@ -111,7 +138,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     initialize();
 
     return () => unsubscribe();
-  }, [firestore, seedDatabase]);
+  }, [firestore, seedDatabase, toast]);
 
 
   const addProduct = useCallback(async (newProductData: Omit<Product, 'id' | 'image' | 'emoji'> & { image: { src: string, alt: string } }) => {
