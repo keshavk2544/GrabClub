@@ -1,120 +1,58 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { initialBakeryOrders, vendors as initialVendors } from '@/lib/data';
 import type { Order, Vendor } from '@/lib/types';
-import { Check, X, Truck } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where, updateDoc } from 'firebase/firestore';
 
-const ORDERS_STORAGE_KEY = 'grabclub-orders';
-const VENDORS_STORAGE_KEY = 'grabclub-vendors';
 const VENDOR_ID = 'sweet-treats-bakery';
 
 export default function BakeryOrdersTab() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [vendor, setVendor] = useState<Vendor | null>(null);
+  const firestore = useFirestore();
   const { toast } = useToast();
 
-  useEffect(() => {
-    try {
-        const storedVendors = window.localStorage.getItem(VENDORS_STORAGE_KEY);
-        const allVendors = storedVendors ? JSON.parse(storedVendors) : initialVendors;
-        const currentVendor = allVendors.find((v: Vendor) => v.id === VENDOR_ID);
-        setVendor(currentVendor || null);
-    } catch (error) {
-        console.error('Failed to load vendors, using initial data.', error);
-        const currentVendor = initialVendors.find((v: Vendor) => v.id === VENDOR_ID);
-        setVendor(currentVendor || null);
-    }
-    // Load initial data from localStorage or use initial mock data
-    try {
-        const storedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-        if (storedOrders) {
-            // Dates are stored as strings in JSON, so we need to parse them back to Date objects
-            const allOrders = JSON.parse(storedOrders).map((o: Order) => ({...o, orderTime: new Date(o.orderTime)}));
-            const vendorOrders = allOrders.filter((o: Order) => o.vendorId === VENDOR_ID);
-            
-            // If this vendor has no orders yet, populate with initial data
-            if (vendorOrders.length === 0) {
-                setOrders(initialBakeryOrders);
-                const updatedAllOrders = [...allOrders, ...initialBakeryOrders];
-                window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedAllOrders));
-            } else {
-                setOrders(vendorOrders);
-            }
-        } else {
-            setOrders(initialBakeryOrders);
-            window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(initialBakeryOrders));
-        }
-    } catch (error) {
-        console.error('Failed to load orders, using initial data.', error);
-        setOrders(initialBakeryOrders);
+  const vendorRef = useMemoFirebase(() => 
+    firestore ? doc(firestore, 'vendors', VENDOR_ID) : null
+  , [firestore]);
+  const { data: vendor } = useDoc<Vendor>(vendorRef);
+
+  const ordersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'orders'), where('vendorId', '==', VENDOR_ID));
+  }, [firestore]);
+  const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
+
+
+  const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
+    if (!firestore) return;
+    
+    const orderRef = doc(firestore, 'orders', orderId);
+    
+    const updateData: Partial<Order> = { status };
+    if (status === 'accepted') {
+      updateData.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
     }
     
-    // Listen for storage changes to sync across tabs
-    const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === ORDERS_STORAGE_KEY && event.newValue) {
-             try {
-                const allOrders = JSON.parse(event.newValue).map((o: Order) => ({...o, orderTime: new Date(o.orderTime)}));
-                const vendorOrders = allOrders.filter((o: Order) => o.vendorId === VENDOR_ID);
-                setOrders(vendorOrders);
-             } catch (error) {
-                console.error('Failed to parse orders from storage event.', error);
-             }
-        }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-        window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
-
-  const updateOrders = (newOrders: Order[]) => {
-    setOrders(newOrders);
-    try {
-        // When updating, we need to get all orders, modify ours, then save all back.
-        const allStoredOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-        const allOrders = allStoredOrders ? JSON.parse(allStoredOrders).map((o: any) => ({...o, orderTime: new Date(o.orderTime)})) : [];
-        const otherVendorOrders = allOrders.filter((o: Order) => o.vendorId !== VENDOR_ID);
-        const updatedAllOrders = [...otherVendorOrders, ...newOrders];
-        window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedAllOrders));
-    } catch (error) {
-        console.error('Failed to save orders to localStorage', error);
-    }
-  }
-
-
-  const handleUpdateStatus = (orderId: string, status: Order['status']) => {
-    const newOrders = orders.map(order => {
-      if (order.id === orderId) {
-        const updatedOrder: Order = { ...order, status };
-        if (status === 'accepted') {
-          updatedOrder.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-        }
-        return updatedOrder;
-      }
-      return order;
-    });
-    updateOrders(newOrders);
+    await updateDoc(orderRef, updateData);
 
     toast({
         title: `Order ${status}`,
-        description: `Order ${orderId} has been marked as ${status}.`,
+        description: `Order has been marked as ${status}.`,
     });
   };
 
-  // Sort orders to always show the newest first
-  const sortedOrders = [...orders].sort((a, b) => b.orderTime.getTime() - a.orderTime.getTime());
+  const sortedOrders = useMemo(() => orders ? [...orders].sort((a, b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()) : [], [orders]);
 
-  const pendingOrders = sortedOrders.filter(o => o.status === 'pending');
-  const activeOrders = sortedOrders.filter(o => o.status === 'accepted');
-  const pastOrders = sortedOrders.filter(o => o.status === 'delivered' || o.status === 'rejected');
+  const pendingOrders = useMemo(() => sortedOrders.filter(o => o.status === 'pending'), [sortedOrders]);
+  const activeOrders = useMemo(() => sortedOrders.filter(o => o.status === 'accepted'), [sortedOrders]);
+  const pastOrders = useMemo(() => sortedOrders.filter(o => o.status === 'delivered' || o.status === 'rejected'), [sortedOrders]);
+
 
   return (
     <div className="grid md:grid-cols-3 gap-6 items-start">
@@ -125,7 +63,7 @@ export default function BakeryOrdersTab() {
             <CardDescription>Review and accept incoming orders.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {pendingOrders.length > 0 ? (
+            {ordersLoading ? <p>Loading orders...</p> : pendingOrders.length > 0 ? (
               pendingOrders.map(order => (
                 <div key={order.id} className="p-4 border rounded-lg bg-card shadow-sm">
                   <div className="flex justify-between items-start">

@@ -5,49 +5,36 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Bike } from 'lucide-react';
-import { vendors as initialVendors, categories } from '@/lib/data';
+import { categories } from '@/lib/data';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Badge } from '@/components/ui/badge';
-
-const ORDERS_STORAGE_KEY = 'grabclub-orders';
-const VENDORS_STORAGE_KEY = 'grabclub-vendors';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where, updateDoc } from 'firebase/firestore';
 
 export default function AvailableOrdersTab() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [deliveryPersonId, setDeliveryPersonId] = useState<string | null>(null);
+  const firestore = useFirestore();
   const { toast } = useToast();
+  const [deliveryPersonId, setDeliveryPersonId] = useState<string | null>(null);
 
   useEffect(() => {
     const id = sessionStorage.getItem('deliveryPersonId');
     setDeliveryPersonId(id);
-
-    const loadData = () => {
-        try {
-            const storedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-            const storedVendors = window.localStorage.getItem(VENDORS_STORAGE_KEY);
-            setOrders(storedOrders ? JSON.parse(storedOrders).map((o: Order) => ({...o, orderTime: new Date(o.orderTime)})) : []);
-            setVendors(storedVendors ? JSON.parse(storedVendors) : initialVendors);
-        } catch (error) {
-            console.error('Failed to load data for delivery dashboard', error);
-        }
-    };
-    
-    loadData();
-
-    const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === ORDERS_STORAGE_KEY || event.key === VENDORS_STORAGE_KEY) {
-            loadData();
-        }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  const ordersQuery = useMemoFirebase(() => 
+    firestore ? query(collection(firestore, 'orders'), where('status', '==', 'accepted')) : null
+  , [firestore]);
+  const { data: acceptedOrders } = useCollection<Order>(ordersQuery);
+
+  const vendorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'vendors') : null, [firestore]);
+  const { data: vendors } = useCollection<Vendor>(vendorsQuery);
+
   const ordersByService = useMemo(() => {
-    const availableOrders = orders.filter(order => {
+    if (!acceptedOrders || !vendors) return [];
+
+    const availableOrders = acceptedOrders.filter(order => {
       const vendor = vendors.find(v => v.id === order.vendorId);
-      return order.status === 'accepted' && vendor?.deliveryType === 'grabclub' && !order.deliveryPersonId;
+      return vendor?.deliveryType === 'grabclub' && !order.deliveryPersonId;
     });
 
     return categories.map(category => ({
@@ -57,22 +44,19 @@ export default function AvailableOrdersTab() {
             return vendor?.category === category.id;
         }),
     })).filter(service => service.orders.length > 0);
-  }, [orders, vendors]);
+  }, [acceptedOrders, vendors]);
   
-  const handlePickUpOrder = (orderId: string) => {
-    if (!deliveryPersonId) {
+  const handlePickUpOrder = async (orderId: string) => {
+    if (!deliveryPersonId || !firestore) {
         toast({ variant: "destructive", title: "Error", description: "Could not identify delivery person." });
         return;
     }
 
-    const updatedOrders = orders.map(o => {
-        if(o.id === orderId) {
-            return { ...o, status: 'out for delivery' as const, deliveryPersonId: deliveryPersonId };
-        }
-        return o;
+    const orderRef = doc(firestore, 'orders', orderId);
+    await updateDoc(orderRef, {
+        status: 'out for delivery',
+        deliveryPersonId: deliveryPersonId,
     });
-    setOrders(updatedOrders);
-    window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedOrders));
 
     toast({ title: 'Order Picked Up', description: 'You can now see this order in your deliveries.' });
   };
@@ -102,7 +86,7 @@ export default function AvailableOrdersTab() {
                                         <div className="flex justify-between items-start">
                                             <div>
                                                 <p className="font-semibold">{order.receiverName}</p>
-                                                <p className="text-sm text-muted-foreground">From: {vendors.find(v => v.id === order.vendorId)?.name}</p>
+                                                <p className="text-sm text-muted-foreground">From: {vendors?.find(v => v.id === order.vendorId)?.name}</p>
                                                 <p className="text-sm text-muted-foreground">{order.deliveryLocation} • {order.deliveryTimeSlot}</p>
                                                 {order.verificationCode && (
                                                     <div className="mt-2 p-2 rounded-md bg-muted text-center">

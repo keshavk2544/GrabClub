@@ -4,12 +4,12 @@ import type { Order, Vendor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Phone, CheckCircle } from 'lucide-react';
-import { vendors as initialVendors, categories } from '@/lib/data';
+import { categories } from '@/lib/data';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/accordion';
 import { Badge } from '../ui/badge';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, query, where, updateDoc } from 'firebase/firestore';
 
-const ORDERS_STORAGE_KEY = 'grabclub-orders';
-const VENDORS_STORAGE_KEY = 'grabclub-vendors';
 
 // Helper to parse time slots like "9:00 AM – 10:00 AM" for sorting
 const parseTimeSlot = (timeSlot: string): number => {
@@ -27,39 +27,32 @@ const parseTimeSlot = (timeSlot: string): number => {
 };
 
 export default function MyDeliveriesTab() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [deliveryPersonId, setDeliveryPersonId] = useState<string | null>(null);
+  const firestore = useFirestore();
   const { toast } = useToast();
+  const [deliveryPersonId, setDeliveryPersonId] = useState<string | null>(null);
 
   useEffect(() => {
     const id = sessionStorage.getItem('deliveryPersonId');
     setDeliveryPersonId(id);
-
-    const loadData = () => {
-        try {
-            const storedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-            const storedVendors = window.localStorage.getItem(VENDORS_STORAGE_KEY);
-            setOrders(storedOrders ? JSON.parse(storedOrders).map((o: Order) => ({...o, orderTime: new Date(o.orderTime)})) : []);
-            setVendors(storedVendors ? JSON.parse(storedVendors) : initialVendors);
-        } catch (error) {
-            console.error('Failed to load data for delivery dashboard', error);
-        }
-    };
-    
-    loadData();
-
-    const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === ORDERS_STORAGE_KEY || event.key === VENDORS_STORAGE_KEY) {
-            loadData();
-        }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  const myOrdersQuery = useMemoFirebase(() => 
+    firestore && deliveryPersonId 
+      ? query(
+          collection(firestore, 'orders'), 
+          where('deliveryPersonId', '==', deliveryPersonId)
+        ) 
+      : null
+  , [firestore, deliveryPersonId]);
+  const { data: myOrders } = useCollection<Order>(myOrdersQuery);
+
+  const vendorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'vendors') : null, [firestore]);
+  const { data: vendors } = useCollection<Vendor>(vendorsQuery);
+
   const ordersByService = useMemo(() => {
-    const myActiveDeliveries = orders.filter(order => order.deliveryPersonId === deliveryPersonId && order.status === 'out for delivery');
+    if (!myOrders || !vendors) return [];
+    
+    const myActiveDeliveries = myOrders.filter(order => order.status === 'out for delivery');
     
     return categories.map(category => {
         const serviceOrders = myActiveDeliveries
@@ -78,25 +71,12 @@ export default function MyDeliveriesTab() {
             orders: serviceOrders,
         };
     }).filter(service => service.orders.length > 0);
-  }, [orders, vendors, deliveryPersonId]);
+  }, [myOrders, vendors]);
   
-  const deliveryHistory = useMemo(() => {
-    return orders
-      .filter(order => order.deliveryPersonId === deliveryPersonId && order.status === 'delivered')
-      .sort((a, b) => b.orderTime.getTime() - a.orderTime.getTime())
-      .slice(0, 10);
-  }, [orders, deliveryPersonId]);
-
-  const handleMarkAsDelivered = (orderId: string) => {
-    const updatedOrders = orders.map(o => {
-        if(o.id === orderId) {
-            return { ...o, status: 'delivered' as const };
-        }
-        return o;
-    });
-    setOrders(updatedOrders);
-    window.localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedOrders));
-
+  const handleMarkAsDelivered = async (orderId: string) => {
+    if (!firestore) return;
+    const orderRef = doc(firestore, 'orders', orderId);
+    await updateDoc(orderRef, { status: 'delivered' });
     toast({ title: 'Order Delivered!', description: 'Great job!' });
   };
 
