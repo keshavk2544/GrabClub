@@ -25,14 +25,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { MedicineRequest } from '@/lib/types';
+import type { MedicineRequest, Vendor } from '@/lib/types';
 import GrabClubLoading from './layout/loading';
-import { vendors, commonMedicineCategories } from '@/lib/data';
+import { commonMedicineCategories } from '@/lib/data';
 import imageData from '@/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useFirestore } from '@/firebase';
-import { addDoc, collection } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { addDoc, collection, doc } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -70,14 +70,14 @@ export default function MedicineOrderForm() {
     const { user, isLoading: isUserLoading } = useUser();
     const router = useRouter();
     const firestore = useFirestore();
+    const vendorRef = useMemoFirebase(() => firestore ? doc(firestore, 'vendors', 'pharmaplus') : null, [firestore]);
+    const { data: vendor, isLoading: isVendorLoading } = useDoc<Vendor>(vendorRef);
     
     const [step, setStep] = useState(1);
     const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'submitted'>('idle');
     const [fileName, setFileName] = useState<string | null>(null);
-    const [vendorSettings, setVendorSettings] = useState<{deliveryLocations: string[], deliveryTimes: string[]}>({ deliveryLocations: [], deliveryTimes: [] });
-    const [isSettingsLoading, setIsSettingsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('upload');
     const [isOpen, setIsOpen] = useState(true);
+    const [activeTab, setActiveTab] = useState('upload');
 
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -90,38 +90,22 @@ export default function MedicineOrderForm() {
         },
     });
     
-    useEffect(() => {
-        const VENDOR_ID = 'pharmaplus';
-        const defaultVendor = vendors.find(v => v.id === VENDOR_ID);
-
-        if (defaultVendor) {
-            setVendorSettings({
-                deliveryLocations: defaultVendor.deliveryLocations || [],
-                deliveryTimes: defaultVendor.deliveryTimes || [],
-            });
-        }
-        setIsSettingsLoading(false);
-    }, []);
-
+    const isSettingsLoading = isVendorLoading;
 
     useEffect(() => {
-        const VENDOR_ID = 'pharmaplus';
-        const defaultVendor = vendors.find(v => v.id === VENDOR_ID);
-
-        if (isSettingsLoading) return;
-
-        let settings = {
-            openingTime: vendorSettings.openingTime || defaultVendor?.openingTime,
-            closingTime: vendorSettings.closingTime || defaultVendor?.closingTime,
-            workingDays: vendorSettings.workingDays || defaultVendor?.workingDays,
-        };
-
-        if (!settings.openingTime || !settings.closingTime || !settings.workingDays || settings.workingDays.length === 0) {
-            setIsOpen(true);
-            return;
-        }
+        if (isSettingsLoading || !vendor) return;
 
         const checkOpenStatus = () => {
+             if (vendor.status === 'inactive') {
+                setIsOpen(false);
+                return;
+            }
+
+            if (!vendor.openingTime || !vendor.closingTime || !vendor.workingDays || vendor.workingDays.length === 0) {
+                setIsOpen(true); // Default to open if settings are incomplete
+                return;
+            }
+
             const now = new Date();
             const timeZone = 'Asia/Kolkata';
 
@@ -141,13 +125,13 @@ export default function MedicineOrderForm() {
             const currentMinute = parseInt(partsMap.minute, 10);
             const currentTimeInMinutes = currentHour * 60 + currentMinute;
 
-            if (!settings.workingDays!.includes(dayOfWeek)) {
+            if (!vendor.workingDays!.includes(dayOfWeek)) {
                 setIsOpen(false);
                 return;
             }
 
-            const [openHour, openMinute] = settings.openingTime!.split(':').map(Number);
-            const [closeHour, closeMinute] = settings.closingTime!.split(':').map(Number);
+            const [openHour, openMinute] = vendor.openingTime!.split(':').map(Number);
+            const [closeHour, closeMinute] = vendor.closingTime!.split(':').map(Number);
             
             const openTimeInMinutes = openHour * 60 + openMinute;
             const closeTimeInMinutes = closeHour * 60 + closeMinute;
@@ -163,7 +147,7 @@ export default function MedicineOrderForm() {
         const intervalId = setInterval(checkOpenStatus, 60000);
 
         return () => clearInterval(intervalId);
-    }, [isSettingsLoading, vendorSettings]);
+    }, [isSettingsLoading, vendor]);
 
 
     useEffect(() => {
@@ -423,7 +407,7 @@ export default function MedicineOrderForm() {
                                                 <FormLabel>Delivery Location</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value} disabled={submissionState === 'submitting'}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Select a drop-off point" /></SelectTrigger></FormControl>
-                                                    <SelectContent>{vendorSettings.deliveryLocations.map((location) => (<SelectItem key={location} value={location}>{location}</SelectItem>))}</SelectContent>
+                                                    <SelectContent>{vendor?.deliveryLocations?.map((location) => (<SelectItem key={location} value={location}>{location}</SelectItem>))}</SelectContent>
                                                 </Select>
                                                 <FormMessage />
                                                 </FormItem>
@@ -437,7 +421,7 @@ export default function MedicineOrderForm() {
                                                 <FormLabel>Preferred Delivery Time</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value} disabled={submissionState === 'submitting'}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Select a time slot" /></SelectTrigger></FormControl>
-                                                    <SelectContent>{vendorSettings.deliveryTimes.map((time) => (<SelectItem key={time} value={time}>{time}</SelectItem>))}</SelectContent>
+                                                    <SelectContent>{vendor?.deliveryTimes?.map((time) => (<SelectItem key={time} value={time}>{time}</SelectItem>))}</SelectContent>
                                                 </Select>
                                                 <FormMessage />
                                                 </FormItem>
