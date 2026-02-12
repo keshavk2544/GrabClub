@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import type { Order, Vendor } from '@/lib/types';
-import { Check, X } from 'lucide-react';
+import { Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, updateDoc } from 'firebase/firestore';
@@ -24,7 +24,7 @@ export default function VegetableOrdersTab() {
   const vendorRef = useMemoFirebase(() => 
     firestore && vendorId ? doc(firestore, 'vendors', vendorId) : null
   , [firestore, vendorId]);
-  const { data: vendor } = useDoc<Vendor>(vendorRef);
+  const { data: vendor, isLoading: vendorIsLoading } = useDoc<Vendor>(vendorRef);
 
   const ordersQuery = useMemoFirebase(() => {
     if (!firestore || !vendorId) return null;
@@ -32,6 +32,7 @@ export default function VegetableOrdersTab() {
   }, [firestore, vendorId]);
   const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
+  const isLoading = vendorIsLoading || ordersLoading;
 
   const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
     if (!firestore) return;
@@ -57,8 +58,8 @@ export default function VegetableOrdersTab() {
   const activeOrders = useMemo(() => sortedOrders.filter(o => o.status === 'accepted'), [sortedOrders]);
   const pastOrders = useMemo(() => sortedOrders.filter(o => o.status === 'delivered' || o.status === 'rejected'), [sortedOrders]);
 
-  if (!vendorId) {
-    return <div>Loading vendor data...</div>;
+  if (isLoading) {
+    return <div className="flex items-center justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   return (
@@ -70,7 +71,7 @@ export default function VegetableOrdersTab() {
             <CardDescription>Review and accept incoming orders.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {ordersLoading ? <p>Loading orders...</p> : pendingOrders.length > 0 ? (
+            {pendingOrders.length > 0 ? (
               pendingOrders.map(order => (
                 <div key={order.id} className="p-4 border rounded-lg bg-card shadow-sm">
                   <div className="flex justify-between items-start">
