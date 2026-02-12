@@ -26,7 +26,7 @@ function OrdersPageContent() {
 
   const userOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
-    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending', 'pending payment', 'accepted', 'out for delivery']));
+    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending payment', 'accepted', 'out for delivery']));
   }, [firestore, user]);
   const { data: userOrders, isLoading: ordersLoading } = useCollection<Order>(userOrdersQuery);
 
@@ -135,7 +135,6 @@ function OrdersPageContent() {
   };
   
   const getDisplayStatus = (status: Order['status']) => {
-    if (status === 'pending') return 'Awaiting Confirmation';
     return status;
   }
 
@@ -193,18 +192,13 @@ function OrdersPageContent() {
                 <div>
                   <CardTitle className="text-lg">Order #{order.id.split('-').pop()}</CardTitle>
                   <CardDescription>
-                    {new Date(order.orderTime as any).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
+                    {new Date(order.orderTime as any).toLocaleString()}
                   </CardDescription>
                 </div>
                 <Badge
                   variant={getStatusBadgeVariant(order.status)}
                   className={cn('capitalize', {
                     'bg-green-600 text-white border-transparent hover:bg-green-700': order.status === 'delivered' || order.status === 'accepted',
-                    'bg-blue-600 text-white border-transparent hover:bg-blue-700': order.status === 'pending',
                     'bg-amber-500 text-white border-transparent hover:bg-amber-600': order.status === 'pending payment',
                     'bg-sky-500 text-white border-transparent hover:bg-sky-600': order.status === 'out for delivery',
                   })}

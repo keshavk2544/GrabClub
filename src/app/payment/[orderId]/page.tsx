@@ -149,9 +149,7 @@ export default function PaymentPage() {
                     throw new Error(errorData.error || 'Payment verification failed.');
                 }
                 
-                // Update order status based on vendor type
-                const isMedicineOrder = order.vendorId === 'pharmaplus';
-                const newStatus = isMedicineOrder ? 'accepted' : 'pending';
+                const newStatus = 'accepted';
 
                 const updateData: Partial<Order> = { status: newStatus };
                 if (!order.verificationCode) {
@@ -160,9 +158,7 @@ export default function PaymentPage() {
 
                 await updateDoc(orderRef, updateData);
                 
-                const toastMessage = isMedicineOrder 
-                    ? "Your order has been confirmed and is being prepared."
-                    : "Your order is awaiting vendor confirmation.";
+                const toastMessage = "Your order has been confirmed and is being prepared.";
 
                 toast({ variant: 'success', title: 'Payment Successful!', description: toastMessage });
                 router.push('/orders');

@@ -19,7 +19,7 @@ export default function ActiveOrderTracker() {
 
   const userOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
-    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending', 'pending payment', 'accepted', 'out for delivery']));
+    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending payment', 'accepted', 'out for delivery']));
   }, [firestore, user]);
   const { data: userOrders, isLoading: ordersLoading } = useCollection<Order>(userOrdersQuery);
 
@@ -66,15 +66,14 @@ export default function ActiveOrderTracker() {
     if (!userOrders) return [];
     
     const ordersWithType = userOrders.map(order => {
-        let type: 'paymentPending' | 'active' | 'pending' | null = null;
+        let type: 'paymentPending' | 'active' | null = null;
         if (order.status === 'pending payment') type = 'paymentPending';
         else if (order.status === 'accepted' || order.status === 'out for delivery') type = 'active';
-        else if (order.status === 'pending') type = 'pending';
         return { ...order, type };
     }).filter(o => o.type !== null);
 
     // Sort by type priority then time
-    const typePriority = { 'paymentPending': 1, 'active': 2, 'pending': 3 };
+    const typePriority: Record<string, number> = { 'paymentPending': 1, 'active': 2 };
     
     return ordersWithType.sort((a, b) => {
         const priorityA = typePriority[a.type!];
@@ -156,40 +155,6 @@ export default function ActiveOrderTracker() {
                                                 </div>
                                             </div>
                                              <Link href="/orders" passHref>
-                                                <Button variant="ghost" size="icon" className="h-10 w-10 relative">
-                                                    {allTrackedOrders.length > 1 && (
-                                                        <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
-                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                                                        <span className="relative inline-flex items-center justify-center rounded-full h-4 w-4 bg-sky-500 text-xs font-bold text-white">
-                                                            {allTrackedOrders.length}
-                                                        </span>
-                                                        </span>
-                                                    )}
-                                                    <ChevronRight className="h-5 w-5" />
-                                                </Button>
-                                            </Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                            {order.type === 'pending' && (
-                                 <div className="relative">
-                                    <div className="absolute -inset-1 bg-gradient-to-r from-sky-500 to-blue-600 rounded-2xl blur opacity-75 animate-pulse-slow"></div>
-                                    <div className="relative p-3 bg-card/80 backdrop-blur-xl border border-blue-500/30 rounded-xl shadow-2xl">
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-sky-500/20 p-2 rounded-lg">
-                                                    <Clock className="h-6 w-6 text-sky-400 animate-spin-slow" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-semibold text-muted-foreground">{vendor?.name || 'Your Order'}</p>
-                                                    <p className="font-bold text-sm leading-tight text-sky-400">
-                                                        Awaiting Confirmation
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">Order yet to be confirmed</p>
-                                                </div>
-                                            </div>
-                                            <Link href="/orders" passHref>
                                                 <Button variant="ghost" size="icon" className="h-10 w-10 relative">
                                                     {allTrackedOrders.length > 1 && (
                                                         <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4">
