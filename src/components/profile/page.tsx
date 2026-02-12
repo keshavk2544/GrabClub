@@ -61,7 +61,11 @@ function ProfilePageContent() {
 
   const userComplaints = useMemo(() => {
     if (!userComplaintsData) return [];
-    return [...userComplaintsData].sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime());
+    return [...userComplaintsData].sort((a, b) => {
+        const dateA = (a.createdAt as any).toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt);
+        const dateB = (b.createdAt as any).toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+    });
   }, [userComplaintsData]);
 
   const complaintForm = useForm<z.infer<typeof complaintSchema>>({
@@ -248,7 +252,7 @@ function ProfilePageContent() {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="font-semibold">Order: #{complaint.orderCode}</p>
-                                    <p className="text-xs text-muted-foreground">{new Date(complaint.createdAt as any).toLocaleString()}</p>
+                                    <p className="text-xs text-muted-foreground">{((complaint.createdAt as any).toDate ? (complaint.createdAt as any).toDate() : new Date(complaint.createdAt)).toLocaleString()}</p>
                                 </div>
                                 <Badge variant={complaint.status === 'resolved' ? 'default' : 'destructive'} className="capitalize">{complaint.status}</Badge>
                             </div>

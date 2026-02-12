@@ -68,6 +68,8 @@ export type Order = {
   verificationCode?: string;
   deliveryPersonId?: string;
   rejectionReason?: 'vendor_unavailable';
+  couponApplied?: boolean;
+  couponCode?: string;
 };
 
 export type CartItem = { product: Product; quantity: number };
@@ -88,6 +90,7 @@ export type MedicineRequest = {
   createdAt: Date;
   orderId?: string;
   orderItems?: OrderItem[];
+  couponCode?: string;
 };
 
 export type PrintRequest = {

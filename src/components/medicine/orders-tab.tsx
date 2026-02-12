@@ -99,11 +99,11 @@ export default function MedicineOrdersTab() {
         }
     };
     
-    const pendingRequests = useMemo(() => (requests || []).filter(r => r.status === 'pending-review').sort((a,b) => (b.createdAt as any).toDate().getTime() - (a.createdAt as any).toDate().getTime()), [requests]);
-    const activeOrders = useMemo(() => (orders || []).filter(o => ['accepted', 'out for delivery'].includes(o.status)).sort((a,b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()), [orders]);
+    const pendingRequests = useMemo(() => (requests || []).filter(r => r.status === 'pending-review').sort((a,b) => (a.createdAt as any).toDate().getTime() - (b.createdAt as any).toDate().getTime()), [requests]);
+    const activeOrders = useMemo(() => (orders || []).filter(o => ['accepted', 'out for delivery'].includes(o.status)).sort((a,b) => (a.orderTime as any).toDate().getTime() - (b.orderTime as any).toDate().getTime()), [orders]);
     const processedRequests = useMemo(() => (requests || []).filter(req => req.status === 'processed' || req.status === 'rejected').sort((a,b) => (b.createdAt as any).toDate().getTime() - (a.createdAt as any).toDate().getTime()), [requests]);
-    const pastOrders = useMemo(() => (orders || []).filter(o => ['delivered', 'rejected'].includes(o.status)).sort((a,b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()), [orders]);
-    const unpaidOrders = useMemo(() => (orders || []).filter(o => o.status === 'pending payment').sort((a,b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()), [orders]);
+    const pastOrders = useMemo(() => (orders || []).filter(o => ['delivered', 'rejected'].includes(o.status)).sort((a,b) => (a.orderTime as any).toDate().getTime() - (b.orderTime as any).toDate().getTime()), [orders]);
+    const unpaidOrders = useMemo(() => (orders || []).filter(o => o.status === 'pending payment').sort((a,b) => (a.orderTime as any).toDate().getTime() - (b.orderTime as any).toDate().getTime()), [orders]);
 
 
     if (isLoading) {
@@ -129,7 +129,7 @@ export default function MedicineOrdersTab() {
                                                 {req.userName}
                                             </CardDescription>
                                         </div>
-                                        <Badge><Clock className="mr-1.5 h-3 w-3" /> {formatDistanceToNow((req.createdAt as any).toDate(), { addSuffix: true })}</Badge>
+                                        <Badge><Clock className="mr-1.5 h-3 w-3" /> {formatDistanceToNow((req.createdAt as any).toDate ? (req.createdAt as any).toDate() : new Date(req.createdAt), { addSuffix: true })}</Badge>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="p-3 border rounded-md">
