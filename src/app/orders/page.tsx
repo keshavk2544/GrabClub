@@ -3,23 +3,26 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useUser } from '@/firebase/auth/use-user';
-import type { Order, Vendor, MedicineRequest } from '@/lib/types';
+import type { Order, Vendor, MedicineRequest, Coupon } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Package, CreditCard } from 'lucide-react';
+import { Package, CreditCard, Ticket, CheckCircle } from 'lucide-react';
 import GrabClubLoading from '@/components/layout/loading';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import BlockedUserGuard from '@/components/blocked-user-guard';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 function OrdersPageContent() {
   const { user, isLoading: isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [couponCodes, setCouponCodes] = useState<Record<string, string>>({});
 
   const userOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
@@ -40,13 +43,13 @@ function OrdersPageContent() {
     const ordersWithMeta = (userOrders || []).map(o => ({
       ...o,
       type: 'order' as const,
-      date: new Date(o.orderTime as any)
+      date: (o.orderTime as any)?.toDate ? (o.orderTime as any).toDate() : new Date(o.orderTime),
     }));
     
     const requestsWithMeta = (userRequests || []).map(req => ({
       ...req,
       type: 'request' as const,
-      date: new Date(req.createdAt as any),
+      date: (req.createdAt as any)?.toDate ? (req.createdAt as any).toDate() : new Date(req.createdAt),
     }));
 
     const combined = [...ordersWithMeta, ...requestsWithMeta];
@@ -57,6 +60,55 @@ function OrdersPageContent() {
   if (isUserLoading || ordersLoading || requestsLoading || vendorsLoading) {
     return <GrabClubLoading />;
   }
+
+  const handleApplyCoupon = async (order: Order) => {
+    const code = couponCodes[order.id]?.trim().toUpperCase();
+    if (!code || !firestore) return;
+
+    const couponsRef = collection(firestore, 'coupons');
+    const q = query(couponsRef, where('code', '==', code));
+
+    try {
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            toast({ variant: 'destructive', title: "Invalid Coupon" });
+            return;
+        }
+
+        const couponDoc = querySnapshot.docs[0];
+        const coupon = { id: couponDoc.id, ...couponDoc.data() } as Coupon;
+
+        if (coupon.timesUsed >= coupon.usageLimit) {
+            toast({ variant: 'destructive', title: "Coupon Expired" });
+            return;
+        }
+
+        const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        if (order.total > subtotal) {
+            const batch = writeBatch(firestore);
+
+            const couponRef = doc(firestore, 'coupons', coupon.id);
+            batch.update(couponRef, { timesUsed: coupon.timesUsed + 1 });
+
+            const orderRef = doc(firestore, 'orders', order.id);
+            batch.update(orderRef, {
+                total: subtotal,
+                couponApplied: true,
+                couponCode: code,
+            });
+
+            await batch.commit();
+            toast({ variant: 'success', title: "Coupon Applied!", description: "Free delivery unlocked." });
+        } else {
+             toast({ variant: 'default', title: "No Delivery Fee", description: "This order already has free delivery." });
+        }
+
+    } catch (error) {
+        console.error("Error applying coupon:", error);
+        toast({ variant: 'destructive', title: "Error", description: "Could not apply coupon." });
+    }
+  };
   
   if (allActiveItems.length === 0) {
     return (
@@ -75,15 +127,10 @@ function OrdersPageContent() {
 
   const getStatusBadgeVariant = (status: Order['status']): "default" | "secondary" | "destructive" => {
     switch (status) {
-      case 'rejected':
-        return 'destructive';
-      case 'delivered':
-      case 'accepted':
-        return 'default';
-      case 'out for delivery':
-      case 'pending payment':
-      default:
-        return 'secondary';
+      case 'rejected': return 'destructive';
+      case 'delivered': return 'default';
+      case 'accepted': return 'default';
+      default: return 'secondary';
     }
   };
   
@@ -131,6 +178,9 @@ function OrdersPageContent() {
            const order = item as Order;
            const isActive = order.status === 'accepted' || order.status === 'out for delivery';
            const displayStatus = getDisplayStatus(order.status);
+           const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+           const deliveryFee = order.total - subtotal;
+
           return (
             <Card key={order.id} className={cn(
               "overflow-hidden",
@@ -141,7 +191,7 @@ function OrdersPageContent() {
                 isActive ? "bg-transparent" : "bg-muted/30"
               )}>
                 <div>
-                  <CardTitle className="text-lg">Order #{order.id.replace('ORD-', '')}</CardTitle>
+                  <CardTitle className="text-lg">Order #{order.id.split('-').pop()}</CardTitle>
                   <CardDescription>
                     {new Date(order.orderTime as any).toLocaleDateString('en-US', {
                       year: 'numeric',
@@ -182,26 +232,62 @@ function OrdersPageContent() {
                     </div>
                   ))}
                 </div>
+                <Separator />
+                <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>₹{subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Delivery Fee</span>
+                        {order.couponApplied ? (
+                            <span className="text-green-500 font-semibold">FREE</span>
+                        ) : (
+                            <span>₹{deliveryFee.toFixed(2)}</span>
+                        )}
+                    </div>
+                </div>
               </CardContent>
               <CardFooter className={cn(
-                "bg-muted/30 p-6 flex justify-between items-center",
+                "p-6 flex flex-col items-stretch gap-4",
                 isActive ? "bg-transparent" : "bg-muted/30"
               )}>
                 {order.status === 'pending payment' ? (
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-amber-500 font-semibold">Payment Required</span>
-                    <Button asChild size="sm">
-                      <Link href={`/payment/${order.id}`}>
-                        <CreditCard className="mr-2 h-4 w-4" /> Pay Now
-                      </Link>
-                    </Button>
-                  </div>
+                  <>
+                    {!order.couponApplied ? (
+                        <div className="space-y-2">
+                            <Label htmlFor={`coupon-${order.id}`} className="flex items-center gap-2 text-sm text-muted-foreground"><Ticket className="w-4 h-4" /> Apply Coupon</Label>
+                            <div className="flex gap-2">
+                                <Input id={`coupon-${order.id}`} placeholder="Enter coupon code" value={couponCodes[order.id] || ''} onChange={(e) => setCouponCodes(prev => ({...prev, [order.id]: e.target.value}))} />
+                                <Button onClick={() => handleApplyCoupon(order)} disabled={!couponCodes[order.id]}>Apply</Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center text-sm font-semibold text-green-500 flex items-center justify-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
+                            <CheckCircle className="w-4 h-4" />
+                            Coupon for Free Delivery Applied!
+                        </div>
+                    )}
+                    <Separator />
+                    <div className="flex justify-between items-center">
+                        <Button asChild size="sm">
+                        <Link href={`/payment/${order.id}`}>
+                            <CreditCard className="mr-2 h-4 w-4" /> Pay Now
+                        </Link>
+                        </Button>
+                        <div className="text-right">
+                          <span className="text-xl font-bold font-headline">₹{order.total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                  </>
                 ) : (
-                  <span className="text-sm text-muted-foreground">Awaiting vendor response...</span>
+                  <div className="flex w-full justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Awaiting vendor response...</span>
+                    <div className="text-right">
+                      <span className="text-xl font-bold font-headline">₹{order.total.toFixed(2)}</span>
+                    </div>
+                  </div>
                 )}
-                <div className="text-right">
-                  <span className="text-xl font-bold font-headline">₹{order.total.toFixed(2)}</span>
-                </div>
               </CardFooter>
             </Card>
           );
