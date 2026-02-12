@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import type { Order } from '@/lib/types';
@@ -14,8 +14,9 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
 import { useUser } from '@/firebase/auth/use-user';
 
-export default function PaymentPage({ params }: { params: { orderId: string } }) {
-  const { orderId } = params;
+export default function PaymentPage() {
+  const params = useParams();
+  const orderId = params.orderId as string;
   const { user, isLoading: isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
