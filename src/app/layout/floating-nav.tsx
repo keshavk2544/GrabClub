@@ -28,7 +28,7 @@ export default function FloatingNav() {
 
   const userOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
-    const activeStatuses: Order['status'][] = ['pending', 'accepted', 'out for delivery'];
+    const activeStatuses: Order['status'][] = ['pending', 'pending payment', 'accepted', 'out for delivery'];
     return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', activeStatuses));
   }, [firestore, user]);
   const { data: userOrders } = useCollection<Order>(userOrdersQuery);

@@ -23,7 +23,7 @@ function OrdersPageContent() {
 
   const userOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
-    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending', 'accepted', 'out for delivery']));
+    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['pending', 'pending payment', 'accepted', 'out for delivery']));
   }, [firestore, user]);
   const { data: userOrders, isLoading: ordersLoading } = useCollection<Order>(userOrdersQuery);
 
@@ -155,6 +155,7 @@ function OrdersPageContent() {
                   className={cn('capitalize', {
                     'bg-green-600 text-white border-transparent hover:bg-green-700': order.status === 'delivered' || order.status === 'accepted',
                     'bg-blue-600 text-white border-transparent hover:bg-blue-700': order.status === 'pending',
+                    'bg-amber-500 text-white border-transparent hover:bg-amber-600': order.status === 'pending payment',
                     'bg-sky-500 text-white border-transparent hover:bg-sky-600': order.status === 'out for delivery',
                   })}
                 >
@@ -186,7 +187,18 @@ function OrdersPageContent() {
                 "bg-muted/30 p-6 flex justify-between items-center",
                 isActive ? "bg-transparent" : "bg-muted/30"
               )}>
-                <span className="text-sm text-muted-foreground">Awaiting vendor response...</span>
+                {order.status === 'pending payment' ? (
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-amber-500 font-semibold">Payment Required</span>
+                    <Button asChild size="sm">
+                      <Link href={`/payment/${order.id}`}>
+                        <CreditCard className="mr-2 h-4 w-4" /> Pay Now
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Awaiting vendor response...</span>
+                )}
                 <div className="text-right">
                   <span className="text-xl font-bold font-headline">₹{order.total.toFixed(2)}</span>
                 </div>
