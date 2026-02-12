@@ -69,7 +69,7 @@ export default function MedicineOrdersTab() {
 
     const handleCreateOrder = (request: MedicineRequest) => {
         setSelectedRequest(request);
-        setCreateOrderOpen(true);
+        setIsCreateOrderOpen(true);
     };
 
     const handleRejectRequest = async (requestId: string) => {
@@ -99,9 +99,9 @@ export default function MedicineOrdersTab() {
         }
     };
     
-    const pendingRequests = useMemo(() => (requests || []).filter(r => r.status === 'pending-review').sort((a,b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime()), [requests]);
+    const pendingRequests = useMemo(() => (requests || []).filter(r => r.status === 'pending-review').sort((a,b) => (b.createdAt as any).toDate().getTime() - (a.createdAt as any).toDate().getTime()), [requests]);
     const activeOrders = useMemo(() => (orders || []).filter(o => ['accepted', 'out for delivery'].includes(o.status)).sort((a,b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()), [orders]);
-    const processedRequests = useMemo(() => (requests || []).filter(req => req.status === 'processed' || req.status === 'rejected').sort((a,b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime()), [requests]);
+    const processedRequests = useMemo(() => (requests || []).filter(req => req.status === 'processed' || req.status === 'rejected').sort((a,b) => (b.createdAt as any).toDate().getTime() - (a.createdAt as any).toDate().getTime()), [requests]);
     const pastOrders = useMemo(() => (orders || []).filter(o => ['delivered', 'rejected'].includes(o.status)).sort((a,b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()), [orders]);
     const unpaidOrders = useMemo(() => (orders || []).filter(o => o.status === 'pending payment').sort((a,b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()), [orders]);
 
@@ -129,7 +129,7 @@ export default function MedicineOrdersTab() {
                                                 {req.userName}
                                             </CardDescription>
                                         </div>
-                                        <Badge><Clock className="mr-1.5 h-3 w-3" /> {formatDistanceToNow(new Date(req.createdAt as any), { addSuffix: true })}</Badge>
+                                        <Badge><Clock className="mr-1.5 h-3 w-3" /> {formatDistanceToNow((req.createdAt as any).toDate(), { addSuffix: true })}</Badge>
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="p-3 border rounded-md">
@@ -351,7 +351,7 @@ export default function MedicineOrdersTab() {
             </div>
              <CreateOrderDialog
                 isOpen={isCreateOrderOpen}
-                setIsOpen={setCreateOrderOpen}
+                setIsOpen={setIsCreateOrderOpen}
                 request={selectedRequest}
                 onOrderCreated={handleOrderCreated}
             />
