@@ -236,20 +236,26 @@ export default function MedicineOrderForm() {
 
         setSubmissionState('submitting');
         
-        const newRequest: Omit<MedicineRequest, 'id'> = {
+        const newRequest: any = {
             userId: user.uid,
-            userName: user.displayName || 'Unknown User',
+            userName: user.displayName || "Unknown User",
             userEmail: user.email,
             phone: data.phone,
             submissionType: data.submissionType,
-            prescriptionImage: data.prescriptionFile,
-            medicinesText: data.medicinesText,
             deliveryLocation: data.deliveryLocation,
             deliveryTimeSlot: data.deliveryTimeSlot,
             receiverName: data.receiverName,
             status: 'pending-review',
             createdAt: new Date(),
         };
+
+        if (data.prescriptionFile) {
+            newRequest.prescriptionImage = data.prescriptionFile;
+        }
+
+        if (data.medicinesText) {
+            newRequest.medicinesText = data.medicinesText;
+        }
 
         console.log("New Medicine Request:", newRequest);
         
