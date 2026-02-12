@@ -145,16 +145,20 @@ export default function MedicineOrdersTab() {
                                                             <FileText className="h-5 w-5 text-primary" />
                                                             <div>
                                                                 <p className="font-semibold text-sm">View Prescription</p>
-                                                                <p className="text-xs text-muted-foreground">Click to open image</p>
+                                                                <p className="text-xs text-muted-foreground">Click to open</p>
                                                             </div>
                                                         </div>
                                                     </DialogTrigger>
-                                                    <DialogContent className="max-w-3xl">
+                                                    <DialogContent className="max-w-3xl h-[90vh] flex flex-col">
                                                         <DialogHeader>
                                                             <DialogTitle>Prescription for {req.receiverName}</DialogTitle>
                                                         </DialogHeader>
-                                                        <div className="relative h-[80vh]">
-                                                            <Image src={req.prescriptionImage} alt={`Prescription for ${req.receiverName}`} fill style={{ objectFit: 'contain' }} />
+                                                        <div className="relative flex-1 border rounded-md overflow-hidden">
+                                                            {req.prescriptionImage.startsWith('data:application/pdf') ? (
+                                                                <iframe src={req.prescriptionImage} className="w-full h-full" title={`Prescription for ${req.receiverName}`} />
+                                                            ) : (
+                                                                <Image src={req.prescriptionImage} alt={`Prescription for ${req.receiverName}`} fill style={{ objectFit: 'contain' }} />
+                                                            )}
                                                         </div>
                                                     </DialogContent>
                                                 </Dialog>
