@@ -131,7 +131,7 @@ export default function PaymentPage() {
             description: `Payment for Order #${order.id.split('-').pop()}`,
             order_id: razorpayOrder.id,
             handler: async function (paymentResponse: any) {
-                if (!orderRef) return;
+                if (!orderRef || !order) return;
 
                 // Verify Razorpay signature on server before updating DB
                 const verifyRes = await fetch('/api/razorpay/verify', {
@@ -149,15 +149,22 @@ export default function PaymentPage() {
                     throw new Error(errorData.error || 'Payment verification failed.');
                 }
                 
-                // Update order only after signature is verified
-                const updateData: Partial<Order> = { status: 'pending' };
+                // Update order status based on vendor type
+                const isMedicineOrder = order.vendorId === 'pharmaplus';
+                const newStatus = isMedicineOrder ? 'accepted' : 'pending';
+
+                const updateData: Partial<Order> = { status: newStatus };
                 if (!order.verificationCode) {
                     updateData.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
                 }
 
                 await updateDoc(orderRef, updateData);
+                
+                const toastMessage = isMedicineOrder 
+                    ? "Your order has been confirmed and is being prepared."
+                    : "Your order is awaiting vendor confirmation.";
 
-                toast({ variant: 'success', title: 'Payment Successful!', description: 'Your order is awaiting vendor confirmation.' });
+                toast({ variant: 'success', title: 'Payment Successful!', description: toastMessage });
                 router.push('/orders');
             },
             prefill: {
