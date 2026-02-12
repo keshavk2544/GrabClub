@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -22,15 +22,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { Order, Vendor } from '@/lib/types';
-import { vendors as initialVendors, categories } from '@/lib/data';
-
-const ORDERS_STORAGE_KEY = 'grabclub-orders';
-const VENDORS_STORAGE_KEY = 'grabclub-vendors';
+import { categories } from '@/lib/data';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function AdminOrdersTab() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [vendors, setVendors] = useState<Vendor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const firestore = useFirestore();
+  const { data: orders, isLoading: ordersLoading } = useCollection<Order>(useMemoFirebase(() => firestore ? collection(firestore, 'orders') : null, [firestore]));
+  const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(useMemoFirebase(() => firestore ? collection(firestore, 'vendors') : null, [firestore]));
 
   const [filterQuery, setFilterQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -39,29 +38,10 @@ export default function AdminOrdersTab() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
 
-  useEffect(() => {
-    try {
-      const storedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-      if (storedOrders) {
-        const allOrders = JSON.parse(storedOrders).map((o: any) => ({ ...o, orderTime: new Date(o.orderTime) }));
-        setOrders(allOrders.sort((a: Order, b: Order) => b.orderTime.getTime() - a.orderTime.getTime()));
-      }
-
-      const storedVendors = window.localStorage.getItem(VENDORS_STORAGE_KEY);
-      if (storedVendors) {
-        setVendors(JSON.parse(storedVendors));
-      } else {
-        setVendors(initialVendors);
-      }
-    } catch (error) {
-      console.error('Failed to load data for admin orders tab', error);
-      setVendors(initialVendors);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const sortedOrders = useMemo(() => orders ? [...orders].sort((a, b) => new Date(b.orderTime as any).getTime() - new Date(a.orderTime as any).getTime()) : [], [orders]);
 
   const getVendorInfo = (vendorId: string) => {
+    if (!vendors) return { name: 'Unknown Vendor', category: 'Unknown' };
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) return { name: 'Unknown Vendor', category: 'Unknown' };
     const category = categories.find(c => c.id === vendor.category);
@@ -74,7 +54,8 @@ export default function AdminOrdersTab() {
   };
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
+    if (!sortedOrders) return [];
+    return sortedOrders.filter(order => {
       const vendorInfo = getVendorInfo(order.vendorId);
 
       // Filter by status
@@ -103,10 +84,10 @@ export default function AdminOrdersTab() {
 
       return true;
     });
-  }, [orders, vendors, filterQuery, statusFilter, serviceFilter]);
+  }, [sortedOrders, vendors, filterQuery, statusFilter, serviceFilter]);
 
 
-  if (isLoading) {
+  if (ordersLoading || vendorsLoading) {
     return <div>Loading orders...</div>;
   }
 
@@ -186,7 +167,7 @@ export default function AdminOrdersTab() {
             )
         })}
       </div>
-       {filteredOrders.length === 0 && !isLoading && (
+       {filteredOrders.length === 0 && !(ordersLoading || vendorsLoading) && (
          <div className="text-center py-16 col-span-full">
             <h3 className="text-xl font-headline font-bold">No Orders Found</h3>
             <p className="mt-2 text-muted-foreground">
@@ -202,7 +183,7 @@ export default function AdminOrdersTab() {
               <DialogHeader>
                 <DialogTitle>Order #{selectedOrder.id.split('-').pop()}</DialogTitle>
                 <DialogDescription>
-                    Placed on {selectedOrder.orderTime.toLocaleString()}
+                    Placed on {new Date(selectedOrder.orderTime as any).toLocaleString()}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">

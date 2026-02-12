@@ -31,6 +31,8 @@ import { vendors, commonMedicineCategories } from '@/lib/data';
 import imageData from '@/lib/placeholder-images.json';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useFirestore } from '@/firebase';
+import { addDoc, collection } from 'firebase/firestore';
 
 
 const formSchema = z.object({
@@ -67,6 +69,7 @@ export default function MedicineOrderForm() {
     const { toast } = useToast();
     const { user, isLoading: isUserLoading } = useUser();
     const router = useRouter();
+    const firestore = useFirestore();
     
     const [step, setStep] = useState(1);
     const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'submitted'>('idle');
@@ -89,35 +92,17 @@ export default function MedicineOrderForm() {
     
     useEffect(() => {
         const VENDOR_ID = 'pharmaplus';
-        const SETTINGS_KEY = `grabclub-vendor-settings-${VENDOR_ID}`;
         const defaultVendor = vendors.find(v => v.id === VENDOR_ID);
 
-        try {
-            const savedSettingsJSON = window.localStorage.getItem(SETTINGS_KEY);
-            if (savedSettingsJSON) {
-                const settings = JSON.parse(savedSettingsJSON);
-                setVendorSettings({
-                    deliveryLocations: settings.deliveryLocations || defaultVendor?.deliveryLocations || [],
-                    deliveryTimes: settings.deliveryTimes || defaultVendor?.deliveryTimes || [],
-                });
-            } else if (defaultVendor) {
-                setVendorSettings({
-                    deliveryLocations: defaultVendor.deliveryLocations || [],
-                    deliveryTimes: defaultVendor.deliveryTimes || [],
-                });
-            }
-        } catch (error) {
-            console.error("Failed to load vendor settings", error);
-            if (defaultVendor) {
-                setVendorSettings({
-                    deliveryLocations: defaultVendor.deliveryLocations || [],
-                    deliveryTimes: defaultVendor.deliveryTimes || [],
-                });
-            }
-        } finally {
-            setIsSettingsLoading(false);
+        if (defaultVendor) {
+            setVendorSettings({
+                deliveryLocations: defaultVendor.deliveryLocations || [],
+                deliveryTimes: defaultVendor.deliveryTimes || [],
+            });
         }
+        setIsSettingsLoading(false);
     }, []);
+
 
     useEffect(() => {
         const VENDOR_ID = 'pharmaplus';
@@ -243,7 +228,7 @@ export default function MedicineOrderForm() {
     };
 
 
-    const onSubmit = (data: z.infer<typeof formSchema>) => {
+    const onSubmit = async (data: z.infer<typeof formSchema>) => {
         if (!user || !user.email) {
             toast({ variant: 'destructive', title: 'Not Logged In', description: 'You must be logged in to submit a request.' });
             return;
@@ -251,8 +236,7 @@ export default function MedicineOrderForm() {
 
         setSubmissionState('submitting');
         
-        const newRequest: MedicineRequest = {
-            id: `MED-${Date.now()}`,
+        const newRequest: Omit<MedicineRequest, 'id'> = {
             userId: user.uid,
             userName: user.displayName || 'Unknown User',
             userEmail: user.email,
@@ -270,17 +254,15 @@ export default function MedicineOrderForm() {
         console.log("New Medicine Request:", newRequest);
         
         try {
-            const existingRequestsJSON = window.localStorage.getItem('grabclub-medicine-requests');
-            const existingRequests: MedicineRequest[] = existingRequestsJSON ? JSON.parse(existingRequestsJSON) : [];
-            const updatedRequests = [newRequest, ...existingRequests];
-            window.localStorage.setItem('grabclub-medicine-requests', JSON.stringify(updatedRequests));
+            if (!firestore) throw new Error("Firestore is not available.");
+            await addDoc(collection(firestore, 'medicineRequests'), newRequest);
 
             setTimeout(() => {
                 setSubmissionState('submitted');
             }, 1500);
 
         } catch (error) {
-            console.error("Failed to save medicine request", error);
+           console.error("Failed to save medicine request", error);
             toast({
                 variant: "destructive",
                 title: "Uh oh! Something went wrong.",

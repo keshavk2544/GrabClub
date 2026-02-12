@@ -23,6 +23,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { vendors } from '@/lib/data';
 import GrabClubLoading from './layout/loading';
+import { useFirestore } from '@/firebase';
+import { addDoc, collection } from 'firebase/firestore';
 
 // Configure the worker source for pdf.js
 if (typeof window !== 'undefined') {
@@ -41,6 +43,7 @@ const printJobSchema = z.object({
 export default function CyberCafePrintForm() {
     const { toast } = useToast();
     const { user, isLoading: isUserLoading } = useUser();
+    const firestore = useFirestore();
     const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
     const [pageCount, setPageCount] = useState<number | null>(null);
     const [totalCost, setTotalCost] = useState<number | null>(null);
@@ -62,34 +65,15 @@ export default function CyberCafePrintForm() {
     
     useEffect(() => {
         const VENDOR_ID = 'cyber-cafe-services';
-        const SETTINGS_KEY = `grabclub-vendor-settings-${VENDOR_ID}`;
         const defaultVendor = vendors.find(v => v.id === VENDOR_ID);
 
-        try {
-            const savedSettingsJSON = window.localStorage.getItem(SETTINGS_KEY);
-            if (savedSettingsJSON) {
-                const settings = JSON.parse(savedSettingsJSON);
-                setVendorSettings({
-                    deliveryLocations: settings.deliveryLocations || defaultVendor?.deliveryLocations || [],
-                    deliveryTimes: settings.deliveryTimes || defaultVendor?.deliveryTimes || [],
-                });
-            } else if (defaultVendor) {
-                setVendorSettings({
-                    deliveryLocations: defaultVendor.deliveryLocations || [],
-                    deliveryTimes: defaultVendor.deliveryTimes || [],
-                });
-            }
-        } catch (error) {
-            console.error("Failed to load vendor settings", error);
-            if (defaultVendor) {
-                setVendorSettings({
-                    deliveryLocations: defaultVendor.deliveryLocations || [],
-                    deliveryTimes: defaultVendor.deliveryTimes || [],
-                });
-            }
-        } finally {
-            setIsSettingsLoading(false);
+        if (defaultVendor) {
+            setVendorSettings({
+                deliveryLocations: defaultVendor.deliveryLocations || [],
+                deliveryTimes: defaultVendor.deliveryTimes || [],
+            });
         }
+        setIsSettingsLoading(false);
     }, []);
 
 
@@ -151,7 +135,7 @@ export default function CyberCafePrintForm() {
         }
     }, [pageCount, watchedPrintType]);
     
-    const onSubmit = (data: z.infer<typeof printJobSchema>) => {
+    const onSubmit = async (data: z.infer<typeof printJobSchema>) => {
         if (!data.file || pageCount === null || !user || !fileDataUrl || totalCost === null) {
            toast({ variant: 'destructive', title: 'Error', description: 'Please complete all fields.' });
            return;
@@ -159,8 +143,7 @@ export default function CyberCafePrintForm() {
 
         setIsSubmitting(true);
         
-        const newPrintRequest: PrintRequest = {
-          id: `PRINT-${Date.now()}`,
+        const newPrintRequest: Omit<PrintRequest, 'id'> = {
           userId: user.uid,
           userName: user.displayName || "Unknown User",
           phone: data.phone,
@@ -175,11 +158,11 @@ export default function CyberCafePrintForm() {
           pickupTimeSlot: data.pickupTimeSlot,
         };
 
+        console.log("New Print Request:", newPrintRequest);
+        
         try {
-          const existingJobsJSON = window.localStorage.getItem('grabclub-print-jobs');
-          const existingJobs: PrintRequest[] = existingJobsJSON ? JSON.parse(existingJobsJSON) : [];
-          const updatedJobs = [newPrintRequest, ...existingJobs];
-          window.localStorage.setItem('grabclub-print-jobs', JSON.stringify(updatedJobs));
+          if (!firestore) throw new Error("Firestore is not available.");
+          await addDoc(collection(firestore, 'printRequests'), newPrintRequest);
 
           setTimeout(() => {
               toast({
@@ -355,7 +338,7 @@ export default function CyberCafePrintForm() {
                             )}
 
                             <Button type="submit" className="w-full" disabled={isSubmitting || !form.formState.isValid || isProcessing}>
-                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting...</> : <><Printer className="mr-2 h-4 w-4" />Submit Print Job</> }
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting Request...</> : <><Printer className="mr-2 h-4 w-4" />Submit Print Job</> }
                             </Button>
                         </form>
                         </Form>

@@ -297,6 +297,27 @@
             "timesUsed": { "type": "number" }
         },
         "required": ["code", "usageLimit", "timesUsed"]
+    },
+    "PrintRequest": {
+      "title": "Print Request",
+      "description": "Represents a user's request for printing services.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "phone": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileDataUrl": { "type": "string", "format": "uri" },
+        "printType": { "type": "string", "enum": ["bw", "color"] },
+        "pageCount": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "printing", "completed", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "pickupLocation": { "type": "string" },
+        "pickupTimeSlot": { "type": "string" }
+      },
+      "required": ["id", "userId", "userName", "phone", "fileName", "fileDataUrl", "printType", "pageCount", "totalCost", "status", "createdAt", "pickupLocation", "pickupTimeSlot"]
     }
   },
   "auth": {
@@ -376,6 +397,14 @@
           "entityName": "Coupon",
           "schema": { "$ref": "#/entities/Coupon" },
           "description": "Stores discount coupon information."
+        }
+      },
+      {
+        "path": "/printRequests/{printRequestId}",
+        "definition": {
+            "entityName": "PrintRequest",
+            "schema": { "$ref": "#/entities/PrintRequest" },
+            "description": "Stores user-submitted requests for printing."
         }
       }
     ],

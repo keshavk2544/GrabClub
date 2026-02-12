@@ -105,5 +105,10 @@ service cloud.firestore {
       // NOTE: Permissive for prototyping.
       allow read, write: if true;
     }
+
+    match /printRequests/{printRequestId} {
+      // NOTE: Permissive for prototyping.
+      allow read, write: if true;
+    }
   }
 }

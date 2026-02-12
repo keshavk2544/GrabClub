@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import type { Order } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,31 +9,18 @@ import { DollarSign, TrendingUp, RefreshCw, AlertTriangle, Users } from 'lucide-
 import { subDays, startOfWeek, startOfMonth, startOfYear } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-
-const ORDERS_STORAGE_KEY = 'grabclub-orders';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 const PROFIT_COMMISSION = 0.15; // 15% commission
 
 export default function AdminFinanceTab() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const firestore = useFirestore();
+  const { data: orders, isLoading } = useCollection<Order>(useMemoFirebase(() => firestore ? collection(firestore, 'orders') : null, [firestore]));
   const [timeFilter, setTimeFilter] = useState('week'); // 'week', 'month', 'year'
 
-  useEffect(() => {
-    try {
-      const storedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-      if (storedOrders) {
-        const allOrders = JSON.parse(storedOrders).map((o: any) => ({ ...o, orderTime: new Date(o.orderTime) }));
-        setOrders(allOrders);
-      }
-    } catch (error) {
-      console.error('Failed to load orders for finance tab', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
   const filteredOrders = useMemo(() => {
+    if (!orders) return [];
     const now = new Date();
     let startDate: Date;
 
@@ -50,7 +37,7 @@ export default function AdminFinanceTab() {
         break;
     }
     
-    return orders.filter(order => order.orderTime >= startDate);
+    return orders.filter(order => new Date(order.orderTime as any) >= startDate);
   }, [orders, timeFilter]);
 
   const financialSummary = useMemo(() => {

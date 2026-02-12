@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,52 +9,21 @@ import type { PrintRequest } from '@/lib/types';
 import { Check, X, Printer, Download } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 
-const PRINT_JOBS_STORAGE_KEY = 'grabclub-print-jobs';
 
 export default function CyberOrdersTab() {
-  const [jobs, setJobs] = useState<PrintRequest[]>([]);
+  const firestore = useFirestore();
   const { toast } = useToast();
 
-  useEffect(() => {
-    try {
-        const storedJobs = window.localStorage.getItem(PRINT_JOBS_STORAGE_KEY);
-        if (storedJobs) {
-            const parsedJobs = JSON.parse(storedJobs).map((j: any) => ({...j, createdAt: new Date(j.createdAt)}));
-            setJobs(parsedJobs);
-        }
-    } catch (error) {
-        console.error('Failed to load print jobs.', error);
-    }
-    
-    const handleStorageChange = (event: StorageEvent) => {
-        if (event.key === PRINT_JOBS_STORAGE_KEY && event.newValue) {
-             try {
-                const parsedJobs = JSON.parse(event.newValue).map((j: any) => ({...j, createdAt: new Date(j.createdAt)}));
-                setJobs(parsedJobs);
-             } catch (error) {
-                console.error('Failed to parse jobs from storage event.', error);
-             }
-        }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  const updateJobs = (newJobs: PrintRequest[]) => {
-    setJobs(newJobs);
-    try {
-        window.localStorage.setItem(PRINT_JOBS_STORAGE_KEY, JSON.stringify(newJobs));
-    } catch (error) {
-        console.error('Failed to save jobs to localStorage', error);
-    }
-  }
-
-  const handleUpdateStatus = (jobId: string, status: PrintRequest['status']) => {
-    const newJobs = jobs.map(job =>
-        job.id === jobId ? { ...job, status } : job
-      );
-    updateJobs(newJobs);
+  const jobsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'printRequests') : null, [firestore]);
+  const { data: jobs } = useCollection<PrintRequest>(jobsQuery);
+  
+  const handleUpdateStatus = async (jobId: string, status: PrintRequest['status']) => {
+    if (!firestore) return;
+    const jobRef = doc(firestore, 'printRequests', jobId);
+    await updateDoc(jobRef, { status });
     toast({ title: `Print Job ${status}`, description: `Job ${jobId.split('-').pop()} has been marked as ${status}.` });
   };
   
@@ -67,7 +36,7 @@ export default function CyberOrdersTab() {
       document.body.removeChild(link);
   };
 
-  const sortedJobs = [...jobs].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const sortedJobs = useMemo(() => jobs ? [...jobs].sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime()) : [], [jobs]);
   const pendingJobs = sortedJobs.filter(o => o.status === 'pending');
   const activeJobs = sortedJobs.filter(o => o.status === 'printing');
   const pastJobs = sortedJobs.filter(o => o.status === 'completed' || o.status === 'rejected');
@@ -88,7 +57,7 @@ export default function CyberOrdersTab() {
                     <div>
                         <p className="font-bold">{job.userName}</p>
                         <p className="text-sm text-muted-foreground">{job.phone}</p>
-                        <p className="text-sm text-muted-foreground">{formatDistanceToNow(job.createdAt, { addSuffix: true })}</p>
+                        <p className="text-sm text-muted-foreground">{formatDistanceToNow(new Date(job.createdAt as any), { addSuffix: true })}</p>
                     </div>
                     <Badge variant="default" className="bg-blue-600 text-white capitalize">{job.status}</Badge>
                   </div>
