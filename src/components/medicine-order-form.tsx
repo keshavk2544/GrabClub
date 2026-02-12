@@ -43,6 +43,7 @@ const formSchema = z.object({
     deliveryTimeSlot: z.string({ required_error: 'Please select a delivery time slot.' }),
     receiverName: z.string().min(2, { message: "Please enter the receiver's name." }),
     phone: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit phone number.' }),
+    couponCode: z.string().optional(),
 }).refine(data => {
     if (data.submissionType === 'upload') {
         return !!data.prescriptionFile;
@@ -87,6 +88,7 @@ export default function MedicineOrderForm() {
             medicinesText: '',
             receiverName: '',
             phone: '',
+            couponCode: '',
         },
     });
     
@@ -182,17 +184,31 @@ export default function MedicineOrderForm() {
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (file) {
-            setFileName(file.name);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                form.setValue('prescriptionFile', reader.result, { shouldValidate: true });
-            };
-            reader.readAsDataURL(file);
-        } else {
-            setFileName(null);
-            form.setValue('prescriptionFile', null);
+        
+        setFileName(null);
+        form.setValue('prescriptionFile', null, { shouldValidate: true });
+
+        if (!file) {
+            if (event.target) event.target.value = '';
+            return;
         }
+
+        if (file.size > 750000) { // ~750KB limit
+            toast({
+                variant: 'destructive',
+                title: 'File Too Large',
+                description: 'Files over 750KB are not supported. Please upload a smaller file.',
+            });
+            if (event.target) event.target.value = '';
+            return;
+        }
+        
+        setFileName(file.name);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            form.setValue('prescriptionFile', reader.result, { shouldValidate: true });
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleAddItem = useCallback((itemName: string) => {
@@ -220,7 +236,7 @@ export default function MedicineOrderForm() {
 
         setSubmissionState('submitting');
         
-        const newRequest: any = {
+        const newRequest: Partial<MedicineRequest> = {
             userId: user.uid,
             userName: user.displayName || "Unknown User",
             userEmail: user.email,
@@ -241,11 +257,15 @@ export default function MedicineOrderForm() {
             newRequest.medicinesText = data.medicinesText;
         }
 
+        if (data.couponCode) {
+            newRequest.couponCode = data.couponCode;
+        }
+
         console.log("New Medicine Request:", newRequest);
         
         try {
             if (!firestore) throw new Error("Firestore is not available.");
-            await addDoc(collection(firestore, 'medicineRequests'), newRequest);
+            await addDoc(collection(firestore, 'medicineRequests'), newRequest as MedicineRequest);
 
             setTimeout(() => {
                 setSubmissionState('submitted');
@@ -456,6 +476,17 @@ export default function MedicineOrderForm() {
                                                         </InputOTPGroup>
                                                     </InputOTP>
                                                 </FormControl>
+                                                <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                         <FormField
+                                            control={form.control}
+                                            name="couponCode"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                <FormLabel>Coupon Code (Optional)</FormLabel>
+                                                <FormControl><Input placeholder="Enter coupon for free delivery" {...field} disabled={submissionState === 'submitting'} /></FormControl>
                                                 <FormMessage />
                                                 </FormItem>
                                             )}

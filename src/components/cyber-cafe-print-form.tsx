@@ -17,7 +17,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Upload, FileText, Loader2, Printer } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -81,48 +81,62 @@ export default function CyberCafePrintForm() {
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
-        if (selectedFile && selectedFile.type === 'application/pdf') {
-            form.setValue('file', selectedFile);
-            setPageCount(null);
-            setTotalCost(null);
-            setFileDataUrl(null);
-            setIsProcessing(true);
 
-            try {
-                const arrayBuffer = await selectedFile.arrayBuffer();
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-                const pdf = await loadingTask.promise;
-                setPageCount(pdf.numPages);
-                
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setFileDataUrl(reader.result as string);
-                };
-                reader.readAsDataURL(selectedFile);
+        // Reset relevant fields
+        form.setValue('file', null);
+        setPageCount(null);
+        setTotalCost(null);
+        setFileDataUrl(null);
 
-            } catch (error) {
-                console.error('Error parsing PDF:', error);
-                toast({
-                    variant: 'destructive',
-                    title: 'PDF Error',
-                    description: 'Could not read the PDF file. Please try another one.',
-                });
-                form.resetField('file');
-            } finally {
+        if (!selectedFile) {
+            if (event.target) event.target.value = '';
+            return;
+        }
+
+        if (selectedFile.type !== 'application/pdf') {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid File Type',
+                description: 'Please upload a valid PDF file.',
+            });
+            if (event.target) event.target.value = '';
+            return;
+        }
+
+        if (selectedFile.size > 750000) { // ~750KB to stay under 1MB data URL
+            toast({
+                variant: 'destructive',
+                title: 'File Too Large',
+                description: 'PDFs over 750KB are not supported. Please choose a smaller file.',
+            });
+            if (event.target) event.target.value = '';
+            return;
+        }
+
+        setIsProcessing(true);
+
+        try {
+            const arrayBuffer = await selectedFile.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            setPageCount(pdf.numPages);
+            
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFileDataUrl(reader.result as string);
+                form.setValue('file', selectedFile, { shouldValidate: true });
                 setIsProcessing(false);
-            }
-        } else {
-            form.resetField('file');
-            setPageCount(null);
-            setTotalCost(null);
-            setFileDataUrl(null);
-            if (selectedFile) { // only toast if a file was selected but was invalid
-              toast({
-                  variant: 'destructive',
-                  title: 'Invalid File',
-                  description: 'Please upload a valid PDF file.',
-              });
-            }
+            };
+            reader.readAsDataURL(selectedFile);
+        } catch (error) {
+            console.error('Error parsing PDF:', error);
+            toast({
+                variant: 'destructive',
+                title: 'PDF Error',
+                description: 'Could not read the PDF file. Please try another one.',
+            });
+            if (event.target) event.target.value = '';
+            setIsProcessing(false);
         }
     };
 
@@ -221,6 +235,7 @@ export default function CyberCafePrintForm() {
                                     <FormControl>
                                       <Input id="pdf-file" type="file" onChange={handleFileChange} accept=".pdf" disabled={isProcessing || isSubmitting} />
                                     </FormControl>
+                                    {form.getValues('file') && <FormDescription>Selected: {form.getValues('file').name}</FormDescription>}
                                     <FormMessage />
                                 </FormItem>
                               )}
