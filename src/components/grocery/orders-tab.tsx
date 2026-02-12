@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, updateDoc } from 'firebase/firestore';
 
-
 const VENDOR_ID = 'general-store';
 
 export default function GroceryOrdersTab() {
