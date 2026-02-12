@@ -1,5 +1,11 @@
-import GrabClubWelcome from '@/components/welcome-page';
+import CategoryBrowser from '@/components/category-browser';
+import HeroSection from '@/components/hero-section';
 
 export default function Page() {
-  return <GrabClubWelcome />;
+  return (
+    <>
+      <HeroSection />
+      <CategoryBrowser />
+    </>
+  );
 }
