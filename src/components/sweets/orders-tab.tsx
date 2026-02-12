@@ -11,21 +11,25 @@ import { cn } from '@/lib/utils';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, updateDoc } from 'firebase/firestore';
 
-const VENDOR_ID = 'sweets-shop';
-
 export default function SweetsOrdersTab() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [vendorId, setVendorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = sessionStorage.getItem('vendorId');
+    setVendorId(id);
+  }, []);
 
   const vendorRef = useMemoFirebase(() => 
-    firestore ? doc(firestore, 'vendors', VENDOR_ID) : null
-  , [firestore]);
+    firestore && vendorId ? doc(firestore, 'vendors', vendorId) : null
+  , [firestore, vendorId]);
   const { data: vendor } = useDoc<Vendor>(vendorRef);
 
   const ordersQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'orders'), where('vendorId', '==', VENDOR_ID));
-  }, [firestore]);
+    if (!firestore || !vendorId) return null;
+    return query(collection(firestore, 'orders'), where('vendorId', '==', vendorId));
+  }, [firestore, vendorId]);
   const { data: orders, isLoading: ordersLoading } = useCollection<Order>(ordersQuery);
 
 
@@ -53,6 +57,9 @@ export default function SweetsOrdersTab() {
   const activeOrders = useMemo(() => sortedOrders.filter(o => o.status === 'accepted'), [sortedOrders]);
   const pastOrders = useMemo(() => sortedOrders.filter(o => o.status === 'delivered' || o.status === 'rejected'), [sortedOrders]);
 
+  if (!vendorId) {
+    return <div>Loading vendor data...</div>;
+  }
 
   return (
     <div className="grid md:grid-cols-3 gap-6 items-start">
