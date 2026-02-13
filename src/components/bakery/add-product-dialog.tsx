@@ -140,7 +140,13 @@ export function AddProductDialog({ isOpen, setIsOpen, product }: AddProductDialo
             vendorId: 'sweet-treats-bakery', // Hardcoded for this dashboard
             category: 'bakery', // Hardcoded for this dashboard
             subCategory: categoryValue,
-            image: { src: data.imageSrc, alt: data.name },
+            image: { 
+                src: data.imageSrc, 
+                alt: data.name,
+                width: 400,
+                height: 300,
+                hint: data.name.toLowerCase().split(' ').slice(0, 2).join(' ')
+            },
             keywords: data.keywords,
         };
 

@@ -41,6 +41,7 @@ import GrabClubLoading from '@/components/layout/loading';
 import { useProducts } from '@/hooks/use-products';
 import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import BlockedUserGuard from '@/components/blocked-user-guard';
 
 
 const checkoutSchema = z.object({
@@ -363,174 +364,176 @@ export default function CheckoutPage() {
   const isVendorInactive = vendor.status === 'inactive';
 
   return (
-    <div className="checkout-page-container">
-        <div className="blob-container">
-            <div className="blob"></div>
-            <div className="blob"></div>
-        </div>
-        <div className="checkout-container">
-            <div className="page-header">
-                <h1 className="page-title">
-                  {vendor?.category === 'food' ? 'Complete Your Food Order' : 'Checkout'}
-                </h1>
-                <p className="page-subtitle">
-                  {vendor?.category === 'food' && vendor.name ? `Finalize your order from ${vendor.name}` : 'Complete your order in just a few steps'}
-                </p>
+    <BlockedUserGuard>
+        <div className="checkout-page-container">
+            <div className="blob-container">
+                <div className="blob"></div>
+                <div className="blob"></div>
             </div>
+            <div className="checkout-container">
+                <div className="page-header">
+                    <h1 className="page-title">
+                      {vendor?.category === 'food' ? 'Complete Your Food Order' : 'Checkout'}
+                    </h1>
+                    <p className="page-subtitle">
+                      {vendor?.category === 'food' && vendor.name ? `Finalize your order from ${vendor.name}` : 'Complete your order in just a few steps'}
+                    </p>
+                </div>
 
-            <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="checkout-grid">
-                
-                {/* --- Left Column --- */}
-                <div className="space-y-[30px]">
-                    <div className="card">
-                         <h2 className="card-title"><MapPin className="card-icon" /> Delivery Details</h2>
-                         <div className="form-section">
-                            {showLocationDropdown ? (
-                                <FormField control={form.control} name="deliveryLocation" render={({ field }) => (
-                                    <FormItem className="input-group">
-                                    <FormLabel className="input-label">Delivery Location</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="input-field"><SelectValue placeholder="Select a drop-off point" /></SelectTrigger></FormControl>
-                                        <SelectContent>{vendor.deliveryLocations?.map((location) => (<SelectItem key={location} value={location}>{location}</SelectItem>))}</SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                    </FormItem>
+                <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="checkout-grid">
+                    
+                    {/* --- Left Column --- */}
+                    <div className="space-y-[30px]">
+                        <div className="card">
+                             <h2 className="card-title"><MapPin className="card-icon" /> Delivery Details</h2>
+                             <div className="form-section">
+                                {showLocationDropdown ? (
+                                    <FormField control={form.control} name="deliveryLocation" render={({ field }) => (
+                                        <FormItem className="input-group">
+                                        <FormLabel className="input-label">Delivery Location</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger className="input-field"><SelectValue placeholder="Select a drop-off point" /></SelectTrigger></FormControl>
+                                            <SelectContent>{vendor.deliveryLocations?.map((location) => (<SelectItem key={location} value={location}>{location}</SelectItem>))}</SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    />
+                                ) : (
+                                    <FormField control={form.control} name="address" render={({ field }) => (
+                                        <FormItem className="input-group">
+                                        <FormLabel className="input-label">Full Delivery Address</FormLabel>
+                                        <FormControl><Textarea placeholder="Enter your hall, room number, and any landmarks" className="input-field min-h-[100px]" {...field} /></FormControl>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 )}
-                                />
-                            ) : (
-                                <FormField control={form.control} name="address" render={({ field }) => (
+
+                                {vendor.deliveryType === 'grabclub' && (
+                                    <FormField control={form.control} name="deliveryTimeSlot" render={({ field }) => (
+                                        <FormItem className="input-group">
+                                        <FormLabel className="input-label">Delivery Time Slot</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger className="input-field"><SelectValue placeholder="Select a time slot" /></SelectTrigger></FormControl>
+                                            <SelectContent>{vendor.deliveryTimes?.map((time) => (<SelectItem key={time} value={time}>{time}</SelectItem>))}</SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    />
+                                )}
+
+                                <FormField control={form.control} name="receiverName" render={({ field }) => (
                                     <FormItem className="input-group">
-                                    <FormLabel className="input-label">Full Delivery Address</FormLabel>
-                                    <FormControl><Textarea placeholder="Enter your hall, room number, and any landmarks" className="input-field min-h-[100px]" {...field} /></FormControl>
+                                    <FormLabel className="input-label">Receiver's Name</FormLabel>
+                                    <FormControl><Input placeholder="Enter the name of the person receiving the order" {...field} className="input-field"/></FormControl>
                                     <FormMessage />
                                     </FormItem>
                                 )} />
-                            )}
-
-                            {vendor.deliveryType === 'grabclub' && (
-                                <FormField control={form.control} name="deliveryTimeSlot" render={({ field }) => (
+                                <FormField control={form.control} name="phone" render={({ field }) => (
                                     <FormItem className="input-group">
-                                    <FormLabel className="input-label">Delivery Time Slot</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl><SelectTrigger className="input-field"><SelectValue placeholder="Select a time slot" /></SelectTrigger></FormControl>
-                                        <SelectContent>{vendor.deliveryTimes?.map((time) => (<SelectItem key={time} value={time}>{time}</SelectItem>))}</SelectContent>
-                                    </Select>
+                                    <FormLabel className="input-label">Contact Number</FormLabel>
+                                    <FormControl>
+                                        <InputOTP maxLength={10} {...field}>
+                                            <InputOTPGroup className="w-full justify-between">
+                                                {[...Array(10)].map((_, i) => <InputOTPSlot key={i} index={i} className="bg-background border-input" />)}
+                                            </InputOTPGroup>
+                                        </InputOTP>
+                                    </FormControl>
                                     <FormMessage />
                                     </FormItem>
-                                )}
-                                />
-                            )}
+                                )} />
+                             </div>
+                        </div>
 
-                            <FormField control={form.control} name="receiverName" render={({ field }) => (
-                                <FormItem className="input-group">
-                                <FormLabel className="input-label">Receiver's Name</FormLabel>
-                                <FormControl><Input placeholder="Enter the name of the person receiving the order" {...field} className="input-field"/></FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="phone" render={({ field }) => (
-                                <FormItem className="input-group">
-                                <FormLabel className="input-label">Contact Number</FormLabel>
-                                <FormControl>
-                                    <InputOTP maxLength={10} {...field}>
-                                        <InputOTPGroup className="w-full justify-between">
-                                            {[...Array(10)].map((_, i) => <InputOTPSlot key={i} index={i} className="bg-background border-input" />)}
-                                        </InputOTPGroup>
-                                    </InputOTP>
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )} />
-                         </div>
-                    </div>
-
-                    <div className="card">
-                        <h2 className="card-title"><CreditCard className="card-icon" /> Payment Method</h2>
-                         <div className="form-section">
-                             <FormField control={form.control} name="paymentMethod" render={({ field }) => (
-                                <FormItem>
-                                <FormControl>
-                                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="payment-options">
-                                        <div className="payment-option relative rounded-xl overflow-hidden">
-                                            <FormControl><RadioGroupItem value="cod" id="cod" disabled /></FormControl>
-                                            <label htmlFor="cod" className="opacity-40 cursor-not-allowed">
-                                                <div className="payment-icon">💵</div>
-                                                <div className="payment-details">
-                                                    <div className="payment-name">Cash on Delivery</div>
-                                                    <div className="payment-desc">Pay when you receive</div>
+                        <div className="card">
+                            <h2 className="card-title"><CreditCard className="card-icon" /> Payment Method</h2>
+                             <div className="form-section">
+                                 <FormField control={form.control} name="paymentMethod" render={({ field }) => (
+                                    <FormItem>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="payment-options">
+                                            <div className="payment-option relative rounded-xl overflow-hidden">
+                                                <FormControl><RadioGroupItem value="cod" id="cod" disabled /></FormControl>
+                                                <label htmlFor="cod" className="opacity-40 cursor-not-allowed">
+                                                    <div className="payment-icon">💵</div>
+                                                    <div className="payment-details">
+                                                        <div className="payment-name">Cash on Delivery</div>
+                                                        <div className="payment-desc">Pay when you receive</div>
+                                                    </div>
+                                                </label>
+                                                <div className="absolute inset-0 bg-card/60 backdrop-blur-sm flex items-center justify-center">
+                                                    <span className="font-semibold text-sm">Currently Unavailable</span>
                                                 </div>
-                                            </label>
-                                            <div className="absolute inset-0 bg-card/60 backdrop-blur-sm flex items-center justify-center">
-                                                <span className="font-semibold text-sm">Currently Unavailable</span>
                                             </div>
-                                        </div>
-                                        <div className="payment-option">
-                                            <FormControl><RadioGroupItem value="online" id="online" /></FormControl>
-                                            <label htmlFor="online">
-                                                <div className="payment-icon">📱</div>
-                                                <div className="payment-details">
-                                                    <div className="payment-name">Online Payment</div>
-                                                    <div className="payment-desc">Pay with Razorpay</div>
-                                                </div>
-                                            </label>
-                                        </div>
-                                    </RadioGroup>
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )} />
-                        </div>
-                    </div>
-                </div>
-
-                {/* --- Right Column --- */}
-                <div>
-                  <div className="card">
-                    <h2 className="card-title"><ShoppingCart className="card-icon" /> Order Summary</h2>
-                     <div className="mb-4 space-y-3">
-                        {cartItems.map(({product, quantity}) => (
-                            <div key={product.id} className="flex items-center gap-3 summary-item">
-                                <Image src={product.image.src} alt={product.image.alt} width={48} height={48} className="aspect-square rounded-md object-cover" />
-                                <div className="flex-1"><p className="text-sm font-medium leading-tight text-white">{product.name}</p><p className="text-xs text-muted-foreground">Qty: {quantity}</p></div>
-                                <p className="text-sm font-medium text-white">₹{(product.price * quantity).toFixed(2)}</p>
+                                            <div className="payment-option">
+                                                <FormControl><RadioGroupItem value="online" id="online" /></FormControl>
+                                                <label htmlFor="online">
+                                                    <div className="payment-icon">📱</div>
+                                                    <div className="payment-details">
+                                                        <div className="payment-name">Online Payment</div>
+                                                        <div className="payment-desc">Pay with Razorpay</div>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )} />
                             </div>
-                        ))}
-                    </div>
-                    <div className="space-y-2">
-                        <div className="summary-item"><span className="item-name">Subtotal</span><span className="item-value">₹{subtotal.toFixed(2)}</span></div>
-                        <div className="summary-item"><span className="item-name">Delivery Fee</span><span className="item-value">{discountApplied ? <span className="text-green-500 font-semibold">FREE</span> : `₹${deliveryFee.toFixed(2)}`}</span></div>
-                    </div>
-                    <div className="total-section">
-                        <div className="total-row">
-                            <span className="total-label">Total</span>
-                            <span className="total-amount">₹{total.toFixed(2)}</span>
                         </div>
                     </div>
 
-                    {!isStoreOpen && (
-                      <Alert variant="destructive" className="mt-4">
-                          <Clock className="h-4 w-4" /><AlertTitle>Store is Currently Closed</AlertTitle>
-                          <AlertDescription>This store is not accepting orders right now. Please try again during their business hours.</AlertDescription>
-                      </Alert>
-                    )}
-                    {isVendorInactive && (
-                      <Alert variant="destructive" className="mt-4">
-                          <Store className="h-4 w-4" /><AlertTitle>Vendor Not Operating</AlertTitle>
-                          <AlertDescription>This vendor is not currently taking orders.</AlertDescription>
-                      </Alert>
-                    )}
+                    {/* --- Right Column --- */}
+                    <div>
+                      <div className="card">
+                        <h2 className="card-title"><ShoppingCart className="card-icon" /> Order Summary</h2>
+                         <div className="mb-4 space-y-3">
+                            {cartItems.map(({product, quantity}) => (
+                                <div key={product.id} className="flex items-center gap-3 summary-item">
+                                    <Image src={product.image.src} alt={product.image.alt} width={48} height={48} className="aspect-square rounded-md object-cover" />
+                                    <div className="flex-1"><p className="text-sm font-medium leading-tight text-white">{product.name}</p><p className="text-xs text-muted-foreground">Qty: {quantity}</p></div>
+                                    <p className="text-sm font-medium text-white">₹{(product.price * quantity).toFixed(2)}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="space-y-2">
+                            <div className="summary-item"><span className="item-name">Subtotal</span><span className="item-value">₹{subtotal.toFixed(2)}</span></div>
+                            <div className="summary-item"><span className="item-name">Delivery Fee</span><span className="item-value">{discountApplied ? <span className="text-green-500 font-semibold">FREE</span> : `₹${deliveryFee.toFixed(2)}`}</span></div>
+                        </div>
+                        <div className="total-section">
+                            <div className="total-row">
+                                <span className="total-label">Total</span>
+                                <span className="total-amount">₹{total.toFixed(2)}</span>
+                            </div>
+                        </div>
 
-                    <Button type="submit" disabled={isSubmitting || !isStoreOpen || isVendorInactive} className="place-order-btn">
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        <span>{isSubmitting ? 'Processing...' : 'Place Order'}</span>
-                    </Button>
-                  </div>
-                </div>
+                        {!isStoreOpen && (
+                          <Alert variant="destructive" className="mt-4">
+                              <Clock className="h-4 w-4" /><AlertTitle>Store is Currently Closed</AlertTitle>
+                              <AlertDescription>This store is not accepting orders right now. Please try again during their business hours.</AlertDescription>
+                          </Alert>
+                        )}
+                        {isVendorInactive && (
+                          <Alert variant="destructive" className="mt-4">
+                              <Store className="h-4 w-4" /><AlertTitle>Vendor Not Operating</AlertTitle>
+                              <AlertDescription>This vendor is not currently taking orders.</AlertDescription>
+                          </Alert>
+                        )}
 
-            </form>
-            </Form>
+                        <Button type="submit" disabled={isSubmitting || !isStoreOpen || isVendorInactive} className="place-order-btn">
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            <span>{isSubmitting ? 'Processing...' : 'Place Order'}</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                </form>
+                </Form>
+            </div>
         </div>
-    </div>
+    </BlockedUserGuard>
   );
 }
