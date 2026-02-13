@@ -9,28 +9,31 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLe
 import { DollarSign, ShoppingCart, TrendingUp } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
-const ORDERS_STORAGE_KEY = 'grabclub-orders';
-const VENDOR_ID = 'fresh-vegetables';
 
 export default function VegetableAnalyticsTab() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [vendorId, setVendorId] = useState<string | null>(null);
+  const firestore = useFirestore();
 
   useEffect(() => {
-    try {
-      const storedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-      if (storedOrders) {
-        const allOrders = JSON.parse(storedOrders).map((o: any) => ({ ...o, orderTime: new Date(o.orderTime) }));
-        const vendorOrders = allOrders.filter((o: Order) => o.vendorId === VENDOR_ID && o.status === 'delivered');
-        setOrders(vendorOrders);
-      }
-    } catch (error) {
-      console.error('Failed to load orders for analytics', error);
-    } finally {
-      setIsLoading(false);
-    }
+    const id = sessionStorage.getItem('vendorId');
+    setVendorId(id);
   }, []);
+
+  const ordersQuery = useMemoFirebase(() => {
+    if (!firestore || !vendorId) return null;
+    return query(collection(firestore, 'orders'), where('vendorId', '==', vendorId), where('status', '==', 'delivered'));
+  }, [firestore, vendorId]);
+  
+  const { data: ordersData, isLoading } = useCollection<Order>(ordersQuery);
+
+  const orders = useMemo(() => {
+    if (!ordersData) return [];
+    return ordersData.map(o => ({ ...o, orderTime: (o.orderTime as any)?.toDate ? (o.orderTime as any).toDate() : new Date(o.orderTime as any) }));
+  }, [ordersData]);
+
 
   const analytics = useMemo(() => {
     if (orders.length === 0) {
@@ -54,18 +57,19 @@ export default function VegetableAnalyticsTab() {
     });
 
     const dailyIncome = Array.from(dailyIncomeMap.entries())
-        .map(([date, total]) => ({ date, total: Math.round(total) })) // Pie chart works better with integers
+        .map(([date, total]) => ({ date, total: Math.round(total) }))
         .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-7); // Pie chart with 30 slices is too much. Let's limit to 7 days.
+        .slice(-7);
 
     const itemCounts = new Map<string, { name: string; count: number }>();
     orders.forEach(order => {
       order.items.forEach(item => {
-        const existing = itemCounts.get(item.productId);
+        const itemKey = (item.productId || item.name).toLowerCase();
+        const existing = itemCounts.get(itemKey);
         if (existing) {
-          itemCounts.set(item.productId, { ...existing, count: existing.count + item.quantity });
+          itemCounts.set(itemKey, { ...existing, count: existing.count + item.quantity });
         } else {
-          itemCounts.set(item.productId, { name: item.name, count: item.quantity });
+          itemCounts.set(itemKey, { name: item.name, count: item.quantity });
         }
       });
     });

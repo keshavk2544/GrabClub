@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import type { Order } from '@/lib/types';
+import { useMemo } from 'react';
+import type { Order, Vendor } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pie, PieChart, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -9,31 +9,31 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLe
 import { DollarSign, ShoppingCart, TrendingUp } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { vendors } from '@/lib/data';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
-const ORDERS_STORAGE_KEY = 'grabclub-orders';
 
 export default function AdminHomeTab() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const firestore = useFirestore();
+  const { data: ordersData, isLoading: ordersLoading } = useCollection<Order>(
+    useMemoFirebase(() => (firestore ? collection(firestore, 'orders') : null), [firestore])
+  );
+  const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(
+    useMemoFirebase(() => (firestore ? collection(firestore, 'vendors') : null), [firestore])
+  );
+  
+  const isLoading = ordersLoading || vendorsLoading;
 
-  useEffect(() => {
-    try {
-      const storedOrders = window.localStorage.getItem(ORDERS_STORAGE_KEY);
-      if (storedOrders) {
-        const allOrders = JSON.parse(storedOrders).map((o: any) => ({ ...o, orderTime: new Date(o.orderTime) }));
-        const deliveredOrders = allOrders.filter((o: Order) => o.status === 'delivered');
-        setOrders(deliveredOrders);
-      }
-    } catch (error) {
-      console.error('Failed to load orders for analytics', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const deliveredOrders = useMemo(() => {
+    if (!ordersData) return [];
+    return ordersData
+      .filter((o: Order) => o.status === 'delivered')
+      .map(o => ({ ...o, orderTime: (o.orderTime as any)?.toDate ? (o.orderTime as any).toDate() : new Date(o.orderTime as any) }));
+  }, [ordersData]);
+
 
   const analytics = useMemo(() => {
-    if (orders.length === 0) {
+    if (deliveredOrders.length === 0 || !vendors) {
       return {
         totalRevenue: 0,
         totalOrders: 0,
@@ -44,12 +44,12 @@ export default function AdminHomeTab() {
       };
     }
 
-    const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-    const totalOrders = orders.length;
+    const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
+    const totalOrders = deliveredOrders.length;
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
     const vendorSales = new Map<string, { name: string; total: number }>();
-    orders.forEach(order => {
+    deliveredOrders.forEach(order => {
         const vendorName = vendors.find(v => v.id === order.vendorId)?.name || 'Unknown Vendor';
         vendorSales.set(vendorName, {
             name: vendorName,
@@ -59,13 +59,14 @@ export default function AdminHomeTab() {
     const salesByVendor = Array.from(vendorSales.values()).sort((a,b) => b.total - a.total).slice(0, 5);
 
     const itemCounts = new Map<string, { name: string; count: number }>();
-    orders.forEach(order => {
+    deliveredOrders.forEach(order => {
       order.items.forEach(item => {
-        const existing = itemCounts.get(item.productId || item.name);
+        const itemKey = (item.productId || item.name).toLowerCase();
+        const existing = itemCounts.get(itemKey);
         if (existing) {
-          itemCounts.set(item.productId || item.name, { ...existing, count: existing.count + item.quantity });
+          itemCounts.set(itemKey, { ...existing, count: existing.count + item.quantity });
         } else {
-          itemCounts.set(item.productId || item.name, { name: item.name, count: item.quantity });
+          itemCounts.set(itemKey, { name: item.name, count: item.quantity });
         }
       });
     });
@@ -78,7 +79,7 @@ export default function AdminHomeTab() {
         const date = format(subDays(new Date(), i), 'MMM d');
         dailyRevenueMap.set(date, 0);
     }
-    orders.forEach(order => {
+    deliveredOrders.forEach(order => {
         const day = format(order.orderTime, 'MMM d');
         if (dailyRevenueMap.has(day)) {
             dailyRevenueMap.set(day, dailyRevenueMap.get(day)! + order.total);
@@ -87,7 +88,7 @@ export default function AdminHomeTab() {
     const dailyRevenue = Array.from(dailyRevenueMap.entries()).map(([name, revenue]) => ({ name, revenue: Math.round(revenue) }));
 
     return { totalRevenue, totalOrders, averageOrderValue, salesByVendor, mostOrderedItems, dailyRevenue };
-  }, [orders]);
+  }, [deliveredOrders, vendors]);
 
   const vendorChartConfig = useMemo(() => {
     const config: ChartConfig = {};
@@ -118,7 +119,7 @@ export default function AdminHomeTab() {
     );
   }
   
-  if (orders.length === 0) {
+  if (deliveredOrders.length === 0) {
       return (
         <div className="text-center py-16">
             <h3 className="text-xl font-headline font-bold">No Analytics Data</h3>

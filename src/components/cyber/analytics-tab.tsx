@@ -1,35 +1,27 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { PrintRequest } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DollarSign, Printer, TrendingUp } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 
-const PRINT_JOBS_STORAGE_KEY = 'grabclub-print-jobs';
 
 export default function CyberAnalyticsTab() {
-  const [jobs, setJobs] = useState<PrintRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const firestore = useFirestore();
+  const jobsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'printRequests'), where('status', '==', 'completed'));
+  }, [firestore]);
 
-  useEffect(() => {
-    try {
-      const storedJobs = window.localStorage.getItem(PRINT_JOBS_STORAGE_KEY);
-      if (storedJobs) {
-        const completedJobs = JSON.parse(storedJobs).filter((j: PrintRequest) => j.status === 'completed');
-        setJobs(completedJobs);
-      }
-    } catch (error) {
-      console.error('Failed to load print jobs for analytics', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { data: jobs, isLoading } = useCollection<PrintRequest>(jobsQuery);
 
   const analytics = useMemo(() => {
-    if (jobs.length === 0) {
+    if (!jobs || jobs.length === 0) {
       return {
         totalRevenue: 0,
         totalJobs: 0,
@@ -69,7 +61,7 @@ export default function CyberAnalyticsTab() {
     );
   }
   
-  if (jobs.length === 0) {
+  if (!jobs || jobs.length === 0) {
       return (
         <div className="text-center py-16">
             <h3 className="text-xl font-headline font-bold">No Analytics Data</h3>
