@@ -184,10 +184,11 @@ function HistoryPageContent() {
           }
 
           const order = item as Order & { date: Date };
-          const isAutoRejected = order.status === 'rejected' && order.rejectionReason === 'vendor_unavailable';
-          const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-          const deliveryFee = order.total - subtotal;
-          
+          const isRefundableRejection = order.status === 'rejected' && (order.rejectionReason === 'vendor_unavailable' || order.rejectionReason === 'vendor_rejected');
+          const rejectionMessage = order.rejectionReason === 'vendor_unavailable' 
+              ? "Due to vendor unavailability, your order couldn't be confirmed." 
+              : "The vendor was unable to fulfill your order at this time.";
+
           return (
             <Card key={order.id} className="overflow-hidden">
               <CardHeader className="flex flex-row items-start justify-between gap-4 bg-muted/30">
@@ -203,13 +204,13 @@ function HistoryPageContent() {
                 </div>
                 <div className="flex items-center">
                     <Badge
-                        variant={isAutoRejected ? 'secondary' : getStatusBadgeVariant(order.status)}
+                        variant={isRefundableRejection ? 'secondary' : getStatusBadgeVariant(order.status)}
                         className={cn('capitalize', {
                         'bg-green-600 text-white border-transparent hover:bg-green-700': order.status === 'delivered',
-                        'bg-yellow-400 text-yellow-900 border-transparent hover:bg-yellow-500': isAutoRejected,
+                        'bg-yellow-400 text-yellow-900 border-transparent hover:bg-yellow-500': isRefundableRejection,
                         })}
                     >
-                        {isAutoRejected ? 'Refund Pending' : order.status}
+                        {isRefundableRejection ? 'Refund Pending' : order.status}
                     </Badge>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -233,12 +234,12 @@ function HistoryPageContent() {
                 </div>
               </CardHeader>
               <CardContent className="p-6 space-y-4">
-                 {isAutoRejected ? (
+                 {isRefundableRejection ? (
                   <Alert variant="warning">
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>Order Cancelled & Refund Pending</AlertTitle>
                       <AlertDescription>
-                          Due to vendor unavailability, your order couldn't be confirmed. A total of <strong>₹{order.total.toFixed(2)}</strong> (₹{subtotal.toFixed(2)} items + ₹{deliveryFee.toFixed(2)} delivery) will be refunded to your account ASAP.
+                          {rejectionMessage} A total of <strong>₹{order.total.toFixed(2)}</strong> will be refunded to your account ASAP.
                       </AlertDescription>
                   </Alert>
                 ) : order.verificationCode && (

@@ -67,7 +67,7 @@ export type Order = {
   orderTime: Date;
   verificationCode?: string;
   deliveryPersonId?: string;
-  rejectionReason?: 'vendor_unavailable';
+  rejectionReason?: 'vendor_unavailable' | 'vendor_rejected';
   couponApplied?: boolean;
   couponCode?: string;
 };

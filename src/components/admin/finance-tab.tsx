@@ -45,11 +45,11 @@ export default function AdminFinanceTab() {
     const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
     const estimatedProfit = totalRevenue * PROFIT_COMMISSION;
 
-    const pendingRefunds = filteredOrders.filter(o => o.status === 'rejected' && o.rejectionReason === 'vendor_unavailable');
+    const pendingRefunds = filteredOrders.filter(o => o.status === 'rejected' && (o.rejectionReason === 'vendor_unavailable' || o.rejectionReason === 'vendor_rejected'));
     const totalRefundAmount = pendingRefunds.reduce((sum, order) => sum + order.total, 0);
 
     const pendingPaymentOrders = filteredOrders.filter(o => o.status === 'pending payment');
-    const rejectedOrders = filteredOrders.filter(o => o.status === 'rejected' && o.rejectionReason !== 'vendor_unavailable');
+    const rejectedOrders = filteredOrders.filter(o => o.status === 'rejected' && o.rejectionReason !== 'vendor_unavailable' && o.rejectionReason !== 'vendor_rejected');
 
     return {
       totalRevenue,
@@ -122,7 +122,7 @@ export default function AdminFinanceTab() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">₹{financialSummary.totalRefundAmount.toFixed(2)}</div>
-                    <p className="text-xs text-muted-foreground">from {financialSummary.pendingRefunds.length} auto-rejected orders</p>
+                    <p className="text-xs text-muted-foreground">from {financialSummary.pendingRefunds.length} rejected orders</p>
                 </CardContent>
             </Card>
         </div>
@@ -131,7 +131,7 @@ export default function AdminFinanceTab() {
             <Card>
                  <CardHeader>
                     <CardTitle className="flex items-center gap-2"><AlertTriangle className="text-yellow-500" /> Orders Requiring Refund</CardTitle>
-                    <CardDescription>Orders automatically rejected due to vendor unavailability.</CardDescription>
+                    <CardDescription>Orders automatically or manually rejected that require a refund.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border max-h-96 overflow-y-auto">

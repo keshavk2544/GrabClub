@@ -42,6 +42,8 @@ export default function VegetableOrdersTab() {
     const updateData: Partial<Order> = { status };
     if (status === 'accepted') {
       updateData.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+    } else if (status === 'rejected') {
+      updateData.rejectionReason = 'vendor_rejected';
     }
     
     await updateDoc(orderRef, updateData);
