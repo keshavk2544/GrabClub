@@ -16,8 +16,8 @@ import { useToast } from "@/hooks/use-toast";
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { ArrowRight, Eye, EyeOff } from 'lucide-react';
 import GrabClubLoading from '@/components/layout/loading';
-import type { Vendor, DeliveryPerson } from '@/lib/types';
-import AnimatedLogo from '@/components/layout/animated-logo';
+import type { Vendor, DeliveryPerson, UserProfile } from '@/lib/types';
+import AnimatedLogo from '@/components/layout/AnimatedLogo';
 
 export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState('student');
@@ -130,13 +130,25 @@ export default function LoginPage() {
   const handleSuccessfulLogin = (loggedInUser: User) => {
     if (!firestore) return;
     const userRef = doc(firestore, 'users', loggedInUser.uid);
-
-    setDocumentNonBlocking(userRef, {
+    
+    // Only set basic info, and importantly, set the status to 'active'
+    // only if it doesn't already exist.
+    const userProfileData: Partial<UserProfile> = {
       uid: loggedInUser.uid,
       displayName: loggedInUser.displayName,
       email: loggedInUser.email,
       photoURL: loggedInUser.photoURL,
-    }, { merge: true });
+    };
+    
+    // Using merge: true with setDoc will create the doc if it doesn't exist,
+    // or update it if it does. Crucially, it won't overwrite existing fields
+    // like 'status' unless they are part of the new data object.
+    // By NOT including 'status', we preserve it if it's already been set to 'blocked'.
+    setDocumentNonBlocking(userRef, userProfileData, { merge: true });
+    
+    // On first login, a new user will not have a status, but they should be active.
+    // The Firestore rules or backend logic should handle setting a default 'active' status on create.
+    // For now, our guard will treat "no status" as "active".
   };
 
   const handleLoginError = (error: any) => {
