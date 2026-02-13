@@ -8,9 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DollarSign, TrendingUp, RefreshCw, AlertTriangle, Users } from 'lucide-react';
 import { subDays, startOfWeek, startOfMonth, startOfYear } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 const PROFIT_COMMISSION = 0.15; // 15% commission
 
@@ -18,6 +30,9 @@ export default function AdminFinanceTab() {
   const firestore = useFirestore();
   const { data: orders, isLoading } = useCollection<Order>(useMemoFirebase(() => firestore ? collection(firestore, 'orders') : null, [firestore]));
   const [timeFilter, setTimeFilter] = useState('week'); // 'week', 'month', 'year'
+  const { toast } = useToast();
+  const [refundOrder, setRefundOrder] = useState<Order | null>(null);
+  const [isRefundDialogOpen, setIsRefundDialogOpen] = useState(false);
 
   const filteredOrders = useMemo(() => {
     if (!orders) return [];
@@ -65,6 +80,23 @@ export default function AdminFinanceTab() {
     };
   }, [filteredOrders]);
   
+  const handleRefundClick = (order: Order) => {
+    setRefundOrder(order);
+    setIsRefundDialogOpen(true);
+  };
+
+  const handleConfirmRefund = async () => {
+    if (!refundOrder || !firestore) return;
+    const orderRef = doc(firestore, 'orders', refundOrder.id);
+    await updateDoc(orderRef, { status: 'refunded' });
+    toast({
+        title: 'Refund Marked',
+        description: `Order ${refundOrder.id.split('-').pop()} has been marked as refunded.`,
+    });
+    setIsRefundDialogOpen(false);
+    setRefundOrder(null);
+  };
+
   if (isLoading) {
     return (
         <div className="space-y-6">
@@ -79,6 +111,7 @@ export default function AdminFinanceTab() {
   }
 
   return (
+    <>
     <div className="space-y-6">
         <div className="flex justify-between items-center">
             <div>
@@ -143,18 +176,28 @@ export default function AdminFinanceTab() {
                                 <TableRow>
                                     <TableHead>Order ID</TableHead>
                                     <TableHead>Customer</TableHead>
-                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead>Amount</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {financialSummary.pendingRefunds.length > 0 ? financialSummary.pendingRefunds.map(order => (
                                     <TableRow key={order.id}>
-                                        <TableCell className="font-mono text-xs">{order.id}</TableCell>
+                                        <TableCell className="font-mono text-xs">{order.id.split('-').pop()}</TableCell>
                                         <TableCell>{order.customerName}</TableCell>
-                                        <TableCell className="text-right font-medium">₹{order.total.toFixed(2)}</TableCell>
+                                        <TableCell className="font-medium">₹{order.total.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handleRefundClick(order)}
+                                            >
+                                                Process Refund
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
                                 )) : (
-                                    <TableRow><TableCell colSpan={3} className="text-center h-24">No pending refunds for this period.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={4} className="text-center h-24">No pending refunds for this period.</TableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -193,5 +236,22 @@ export default function AdminFinanceTab() {
             </Card>
         </div>
     </div>
+    <AlertDialog open={isRefundDialogOpen} onOpenChange={setIsRefundDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Process Refund for Order #{refundOrder?.id.split('-').pop()}</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will mark the order as refunded in the system. Please ensure you have already initiated the refund of <strong>₹{refundOrder?.total.toFixed(2)}</strong> through your payment gateway (e.g., Razorpay). The user will be notified that the refund may take 4-5 working days.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRefundOrder(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRefund}>
+                Mark as Refunded
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

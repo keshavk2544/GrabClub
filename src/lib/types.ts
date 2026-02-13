@@ -59,7 +59,7 @@ export type Order = {
   customerPhone?: string;
   receiverName?: string;
   requestId?: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'out for delivery' | 'delivered' | 'pending payment';
+  status: 'pending' | 'accepted' | 'rejected' | 'out for delivery' | 'delivered' | 'pending payment' | 'refunded';
   items: OrderItem[];
   total: number;
   deliveryLocation: string;
