@@ -37,7 +37,10 @@ export default function AdminFinanceTab() {
         break;
     }
     
-    return orders.filter(order => new Date(order.orderTime as any) >= startDate);
+    return orders.filter(order => {
+        const orderDate = (order.orderTime as any)?.toDate ? (order.orderTime as any).toDate() : new Date(order.orderTime as any);
+        return orderDate >= startDate;
+    });
   }, [orders, timeFilter]);
 
   const financialSummary = useMemo(() => {
