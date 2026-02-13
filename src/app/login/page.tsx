@@ -136,7 +136,6 @@ export default function LoginPage() {
       displayName: loggedInUser.displayName,
       email: loggedInUser.email,
       photoURL: loggedInUser.photoURL,
-      status: 'active',
     }, { merge: true });
   };
 
