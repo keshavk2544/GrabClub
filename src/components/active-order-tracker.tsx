@@ -92,23 +92,30 @@ export default function ActiveOrderTracker() {
   , [firestore]);
   const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
 
-  const checkAndRejectOldOrders = useCallback(async () => {
-    const userOrders = allUserOrders?.filter(o => o.status === 'pending');
-    if (!firestore || !userOrders || userOrders.length === 0) return;
+  const checkAndCleanupOldOrders = useCallback(async () => {
+    if (!firestore || !allUserOrders || allUserOrders.length === 0) return;
 
     const now = new Date().getTime();
-    const twelveHoursAgo = now - 12 * 60 * 60 * 1000;
     const batch = writeBatch(firestore);
     let ordersModified = false;
 
-    userOrders.forEach(order => {
-        if (order.status === 'pending') {
-            const orderTime = (order.orderTime as any).toDate ? (order.orderTime as any).toDate().getTime() : new Date(order.orderTime as any).getTime();
-            if (orderTime < twelveHoursAgo) {
-                const orderRef = doc(firestore, 'orders', order.id);
-                batch.update(orderRef, { status: 'rejected', rejectionReason: 'vendor_unavailable' });
-                ordersModified = true;
-            }
+    const twelveHoursAgo = now - 12 * 60 * 60 * 1000;
+    const sixHoursAgo = now - 6 * 60 * 60 * 1000;
+
+    allUserOrders.forEach(order => {
+        const orderTime = (order.orderTime as any).toDate ? (order.orderTime as any).toDate().getTime() : new Date(order.orderTime as any).getTime();
+        const orderRef = doc(firestore, 'orders', order.id);
+
+        // Reject pending orders older than 12 hours
+        if (order.status === 'pending' && orderTime < twelveHoursAgo) {
+            batch.update(orderRef, { status: 'rejected', rejectionReason: 'vendor_unavailable' });
+            ordersModified = true;
+        }
+        
+        // Reject pending payment orders older than 6 hours
+        if (order.status === 'pending payment' && orderTime < sixHoursAgo) {
+            batch.update(orderRef, { status: 'rejected', rejectionReason: 'payment_timed_out' });
+            ordersModified = true;
         }
     });
 
@@ -119,13 +126,13 @@ export default function ActiveOrderTracker() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      checkAndRejectOldOrders();
+      checkAndCleanupOldOrders();
     }, 60 * 60 * 1000); // Check every hour
     
-    checkAndRejectOldOrders(); // Initial check
+    checkAndCleanupOldOrders(); // Initial check
 
     return () => clearInterval(interval);
-  }, [checkAndRejectOldOrders]);
+  }, [checkAndCleanupOldOrders]);
 
   const allTrackedOrders = useMemo(() => {
     const userOrders = allUserOrders?.filter(o => ['pending', 'pending payment', 'accepted', 'out for delivery'].includes(o.status));
