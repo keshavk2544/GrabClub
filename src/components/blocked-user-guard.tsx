@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import GrabClubLoading from '@/components/layout/loading';
 import { cn } from '@/lib/utils';
-
-const BLOCKED_USERS_STORAGE_KEY = 'grabclub-blocked-users';
+import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { UserProfile } from '@/lib/types';
 
 const ConfettiExplosion = () => {
     const [pieces, setPieces] = useState<number[]>([]);
@@ -36,40 +37,28 @@ const ConfettiExplosion = () => {
 
 
 export default function BlockedUserGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useUser();
+  const { user, isLoading: isUserAuthLoading } = useUser();
+  const firestore = useFirestore();
   const router = useRouter();
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+
+  const userProfileRef = useMemoFirebase(() => 
+    (user && firestore) ? doc(firestore, 'users', user.uid) : null
+  , [user, firestore]);
+  
+  const { data: userProfile, isLoading: isUserProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   // Prank state
   const [isRevealed, setIsRevealed] = useState(false);
   const [isLoadingPremium, setIsLoadingPremium] = useState(false);
-
+  
+  const isLoading = isUserAuthLoading || isUserProfileLoading;
+  const isBlocked = userProfile?.status === 'blocked';
 
   useEffect(() => {
-    if (isLoading) {
-      return;
-    }
-    if (!user) {
+    if (!isUserAuthLoading && !user) {
       router.push('/login');
-      return;
     }
-
-    try {
-      const storedBlockedUsers = window.localStorage.getItem(BLOCKED_USERS_STORAGE_KEY);
-      if (storedBlockedUsers) {
-        const blockedUsers: string[] = JSON.parse(storedBlockedUsers);
-        if (user.email && blockedUsers.includes(user.email)) {
-          setIsBlocked(true);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to check blocked status:', error);
-    } finally {
-        setIsCheckingStatus(false);
-    }
-    
-  }, [user, isLoading, router]);
+  }, [user, isUserAuthLoading, router]);
 
   const handleRevealTruth = () => {
     setIsLoadingPremium(true);
@@ -80,7 +69,7 @@ export default function BlockedUserGuard({ children }: { children: React.ReactNo
   };
 
 
-  if (isLoading || isCheckingStatus) {
+  if (isLoading) {
     return <GrabClubLoading />;
   }
 
