@@ -74,6 +74,14 @@ export type Order = {
 
 export type CartItem = { product: Product; quantity: number };
 
+export type UserProfile = {
+  uid: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  status?: 'active' | 'blocked';
+};
+
 export type MedicineRequest = {
   id: string;
   userId: string;
@@ -150,3 +158,5 @@ export type Coupon = {
   usageLimit: number;
   timesUsed: number;
 };
+
+    
