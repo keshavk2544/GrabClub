@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Package, CreditCard, Ticket, CheckCircle } from 'lucide-react';
+import { Package, CreditCard, Ticket, CheckCircle, Clock } from 'lucide-react';
 import GrabClubLoading from '@/components/layout/loading';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -193,7 +193,7 @@ function OrdersPageContent() {
                 <div>
                   <CardTitle className="text-lg">Order #{order.id.split('-').pop()}</CardTitle>
                   <CardDescription>
-                    {new Date(order.orderTime as any).toLocaleString()}
+                    {item.date.toLocaleString()}
                   </CardDescription>
                 </div>
                 <Badge
