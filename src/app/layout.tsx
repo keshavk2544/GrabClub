@@ -14,6 +14,7 @@ import { BakeryCategoryProvider } from '@/context/bakery-categories-context';
 import { SweetsCategoryProvider } from '@/context/sweets-categories-context';
 import { FoodCategoryProvider } from '@/context/food-categories-context';
 import ActiveOrderTracker from '@/components/active-order-tracker';
+import NotificationHandler from '@/components/NotificationHandler';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,6 +49,7 @@ export default function RootLayout({
                       <BakeryCategoryProvider>
                         <SweetsCategoryProvider>
                           <Header />
+                          <NotificationHandler />
                           <main className="flex-grow">{children}</main>
                           <Footer />
                           <FloatingNav />

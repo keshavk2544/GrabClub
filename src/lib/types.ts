@@ -80,6 +80,7 @@ export type UserProfile = {
   email: string;
   photoURL?: string;
   status?: 'active' | 'blocked';
+  fcmTokens?: string[];
 };
 
 export type MedicineRequest = {
