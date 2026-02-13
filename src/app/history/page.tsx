@@ -31,7 +31,7 @@ function HistoryPageContent() {
 
   const deliveredOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
-    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['delivered', 'rejected']));
+    return query(collection(firestore, 'orders'), where('customerEmail', '==', user.email), where('status', 'in', ['delivered', 'rejected', 'refunded']));
   }, [firestore, user]);
   const { data: userOrders, isLoading: ordersLoading } = useCollection<Order>(deliveredOrdersQuery);
 
@@ -127,6 +127,7 @@ function HistoryPageContent() {
   const getStatusBadgeVariant = (status: Order['status']): "default" | "secondary" | "destructive" => {
     switch (status) {
       case 'rejected':
+      case 'refunded':
         return 'destructive';
       case 'delivered':
         return 'default';
@@ -239,7 +240,7 @@ function HistoryPageContent() {
                       <AlertCircle className="h-4 w-4" />
                       <AlertTitle>Order Cancelled & Refund Pending</AlertTitle>
                       <AlertDescription>
-                          {rejectionMessage} A total of <strong>₹{order.total.toFixed(2)}</strong> will be refunded to your account ASAP.
+                          {rejectionMessage} A total of <strong>₹{order.total.toFixed(2)}</strong> will be refunded to your account in 4-5 working days. We are trying to make it ASAP.
                       </AlertDescription>
                   </Alert>
                 ) : order.verificationCode && (
@@ -282,3 +283,5 @@ export default function HistoryPage() {
         </BlockedUserGuard>
     )
 }
+
+    
