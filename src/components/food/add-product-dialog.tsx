@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useProducts } from '@/hooks/use-products';
@@ -11,10 +11,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Camera, Upload, Loader2, AlertCircle } from 'lucide-react';
+import { Camera, Upload, Loader2, AlertCircle, Trash2, Plus } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Image from 'next/image';
 import { useFoodCategories } from '@/context/food-categories-context';
+import { Separator } from '../ui/separator';
+
+const variantSchema = z.object({
+  name: z.string().min(1, { message: "Variant name is required." }),
+  price: z.coerce.number().positive({ message: "Price must be a positive number." }),
+});
 
 const productSchema = z.object({
     name: z.string().min(3, { message: "Product name must be at least 3 characters." }),
@@ -24,6 +30,7 @@ const productSchema = z.object({
     imageSrc: z.string().min(1, { message: "An image is required." }),
     subCategory: z.string().min(1, { message: "Category is required." }),
     keywords: z.string().optional(),
+    variants: z.array(variantSchema).optional(),
 });
 
 type AddProductDialogProps = {
@@ -52,7 +59,12 @@ export function AddProductDialog({ isOpen, setIsOpen, product }: AddProductDialo
 
     const form = useForm<z.infer<typeof productSchema>>({
         resolver: zodResolver(productSchema),
-        defaultValues: { name: '', price: 0, inventory: 0, quantityUnit: '', imageSrc: '', subCategory: '', keywords: '' }
+        defaultValues: { name: '', price: 0, inventory: 0, quantityUnit: '', imageSrc: '', subCategory: '', keywords: '', variants: [] }
+    });
+    
+    const { fields, append, remove } = useFieldArray({
+        control: form.control,
+        name: "variants",
     });
 
     useEffect(() => {
@@ -65,10 +77,11 @@ export function AddProductDialog({ isOpen, setIsOpen, product }: AddProductDialo
                 imageSrc: product.image.src,
                 subCategory: product.subCategory || '',
                 keywords: product.keywords || '',
+                variants: product.variants || [],
             });
             setImagePreview(product.image.src);
         } else {
-            form.reset({ name: '', price: 0, inventory: 0, quantityUnit: '', imageSrc: '', subCategory: '', keywords: '' });
+            form.reset({ name: '', price: 0, inventory: 0, quantityUnit: '', imageSrc: '', subCategory: '', keywords: '', variants: [] });
             setImagePreview(null);
         }
         setImageMode(null);
@@ -158,6 +171,7 @@ export function AddProductDialog({ isOpen, setIsOpen, product }: AddProductDialo
                 hint: data.name.toLowerCase().split(' ').slice(0, 2).join(' ') 
             },
             keywords: data.keywords,
+            variants: data.variants,
         };
 
         try {
@@ -192,7 +206,7 @@ export function AddProductDialog({ isOpen, setIsOpen, product }: AddProductDialo
                             <FormField control={form.control} name="price" render={({ field }) => ( <FormItem className="flex-1"><FormLabel>Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="e.g., 12.99" {...field} /></FormControl><FormMessage /></FormItem> )} />
                             <FormField control={form.control} name="inventory" render={({ field }) => ( <FormItem className="w-24"><FormLabel>In Stock</FormLabel><FormControl><Input type="number" placeholder="e.g., 20" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         </div>
-                        <FormField control={form.control} name="quantityUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g., 1 pc, slice" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        <FormField control={form.control} name="quantityUnit" render={({ field }) => ( <FormItem><FormLabel>Unit</FormLabel><FormControl><Input placeholder="e.g., Full Plate, 1 pc" {...field} /></FormControl><FormMessage /></FormItem> )} />
                         <FormField
                             control={form.control}
                             name="subCategory"
@@ -261,8 +275,32 @@ export function AddProductDialog({ isOpen, setIsOpen, product }: AddProductDialo
                          <FormField control={form.control} name="imageSrc" render={({ field }) => ( <FormItem><FormControl><Input type="hidden" {...field} /></FormControl><FormMessage className="mt-2" /></FormItem> )} />
                     </div>
                 </div>
+                 <Separator />
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-base font-medium">Variants / Sizes (Optional)</Label>
+                    <p className="text-sm text-muted-foreground">Add different sizes or versions of this item, like "Half Plate" or "Large".</p>
+                  </div>
+                  <div className="space-y-3">
+                    {fields.map((field, index) => (
+                      <div key={field.id} className="flex items-end gap-2 p-3 border rounded-md bg-muted/50">
+                        <div className="grid grid-cols-2 gap-2 flex-1">
+                          <FormField control={form.control} name={`variants.${index}.name`} render={({ field }) => ( <FormItem><FormLabel>Variant Name</FormLabel><FormControl><Input placeholder="e.g., Half Plate" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                          <FormField control={form.control} name={`variants.${index}.price`} render={({ field }) => ( <FormItem><FormLabel>Price (₹)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem> )} />
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-destructive" onClick={() => remove(index)}>
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Remove variant</span>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                   <Button type="button" variant="outline" size="sm" onClick={() => append({ name: '', price: 0 })}>
+                    <Plus className="mr-2 h-4 w-4" /> Add Variant
+                  </Button>
+                </div>
                 <canvas ref={canvasRef} className="hidden" />
-                <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{product ? 'Save Changes' : 'Add Item'}</Button>
+                <Button type="submit" className="w-full mt-4" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{product ? 'Save Changes' : 'Add Item'}</Button>
             </form>
             </Form>
         </DialogContent>

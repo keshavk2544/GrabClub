@@ -159,8 +159,12 @@ export default function CartPage() {
           </h1>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map(({product, quantity}) => (
-                <div key={product.id} className="relative flex items-center gap-4 p-3 rounded-2xl bg-card/50 border border-white/10">
+              {cartItems.map(({product, quantity, variant}) => {
+                const itemPrice = variant ? variant.price : product.price;
+                const itemName = variant ? `${product.name} (${variant.name})` : product.name;
+
+                return (
+                <div key={`${product.id}-${variant?.name || ''}`} className="relative flex items-center gap-4 p-3 rounded-2xl bg-card/50 border border-white/10">
                     <Image 
                       src={product.image.src}
                       alt={product.image.alt}
@@ -170,15 +174,15 @@ export default function CartPage() {
                     />
                     
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-headline text-base leading-tight truncate pr-6">{product.name}</h3>
-                      <p className="text-xs text-muted-foreground">{product.quantityUnit}</p>
+                      <h3 className="font-headline text-base leading-tight truncate pr-6">{itemName}</h3>
+                      <p className="text-xs text-muted-foreground">{variant ? variant.name : product.quantityUnit}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center gap-1.5 border rounded-full p-0.5">
-                            <Button size="icon" variant="ghost" className="rounded-full h-6 w-6" onClick={() => updateQuantity(product.id, quantity - 1)}>
+                            <Button size="icon" variant="ghost" className="rounded-full h-6 w-6" onClick={() => updateQuantity(product.id, quantity - 1, variant?.name)}>
                                 <Minus className="w-3 h-3" />
                             </Button>
                             <span className="w-5 text-center font-bold text-sm">{quantity}</span>
-                            <Button size="icon" variant="ghost" className="rounded-full h-6 w-6" onClick={() => updateQuantity(product.id, quantity + 1)}>
+                            <Button size="icon" variant="ghost" className="rounded-full h-6 w-6" onClick={() => updateQuantity(product.id, quantity + 1, variant?.name)}>
                                 <Plus className="w-3 h-3" />
                             </Button>
                         </div>
@@ -187,18 +191,18 @@ export default function CartPage() {
 
                     <div className="text-right flex-shrink-0 ml-auto">
                         <p className="text-base font-bold">
-                            ₹{(product.price * quantity).toFixed(2)}
+                            ₹{(itemPrice * quantity).toFixed(2)}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                            ₹{product.price.toFixed(2)} each
+                            ₹{itemPrice.toFixed(2)} each
                         </p>
                     </div>
                 
-                    <Button size="icon" variant="ghost" className="absolute top-2 right-2 text-muted-foreground hover:text-destructive rounded-full h-6 w-6" onClick={() => removeFromCart(product.id)}>
+                    <Button size="icon" variant="ghost" className="absolute top-2 right-2 text-muted-foreground hover:text-destructive rounded-full h-6 w-6" onClick={() => removeFromCart(product.id, variant?.name)}>
                         <Trash2 className="w-4 h-4" />
                     </Button>
                 </div>
-              ))}
+              )})}
             </div>
             <div className="lg:col-span-1 space-y-6">
               <div className="p-6 rounded-2xl bg-card/50 border border-white/10 sticky top-24">

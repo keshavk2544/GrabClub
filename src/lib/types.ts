@@ -1,5 +1,6 @@
 
 
+
 export type Category = {
   id: string;
   name: string;
@@ -12,6 +13,11 @@ type ImageType = {
   height: number;
   alt: string;
   hint: string;
+};
+
+export type ProductVariant = {
+  name: string;
+  price: number;
 };
 
 export type Vendor = {
@@ -45,6 +51,7 @@ export type Product = {
   emoji: string;
   inventory: number;
   keywords?: string;
+  variants?: ProductVariant[];
 };
 
 export type OrderItem = {
@@ -52,6 +59,7 @@ export type OrderItem = {
   name: string;
   quantity: number;
   price: number;
+  variantName?: string;
 };
 
 export type Order = {
@@ -76,7 +84,7 @@ export type Order = {
   couponCode?: string;
 };
 
-export type CartItem = { product: Product; quantity: number };
+export type CartItem = { product: Product; quantity: number; variant?: ProductVariant };
 
 export type UserProfile = {
   uid: string;

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -36,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Order, Vendor } from '@/lib/types';
+import type { Order, Vendor, OrderItem } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import GrabClubLoading from '@/components/layout/loading';
 import { useProducts } from '@/hooks/use-products';
@@ -189,14 +190,22 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     const createOrderObject = () => {
-      const baseOrder: Omit<Order, 'id' | 'orderTime' | 'deliveryTimeSlot'> & { deliveryTimeSlot?: string } = {
+      const orderItems: OrderItem[] = cartItems.map(item => ({
+        productId: item.product.id,
+        name: item.variant ? `${item.product.name} (${item.variant.name})` : item.product.name,
+        quantity: item.quantity,
+        price: item.variant ? item.variant.price : item.product.price,
+        variantName: item.variant?.name,
+      }));
+
+      const baseOrder: Omit<Order, 'id' | 'orderTime' | 'deliveryTimeSlot' | 'items'> & { items: OrderItem[], deliveryTimeSlot?: string } = {
           vendorId: vendor.id,
           customerName: user!.displayName || 'Anonymous',
           customerEmail: user!.email!,
           customerPhone: data.phone,
           receiverName: data.receiverName,
           status: 'pending',
-          items: cartItems.map(item => ({ productId: item.product.id, name: item.product.name, quantity: item.quantity, price: item.product.price })),
+          items: orderItems,
           total: total,
           platformFee: subtotal > 0 ? PLATFORM_FEE : 0,
           deliveryLocation: showLocationDropdown ? data.deliveryLocation! : data.address!,
@@ -493,11 +502,14 @@ export default function CheckoutPage() {
                       <div className="card">
                         <h2 className="card-title"><ShoppingCart className="card-icon" /> Order Summary</h2>
                          <div className="mb-4 space-y-3">
-                            {cartItems.map(({product, quantity}) => (
-                                <div key={product.id} className="flex items-center gap-3 summary-item">
+                            {cartItems.map(({product, quantity, variant}) => (
+                                <div key={`${product.id}-${variant?.name || ''}`} className="flex items-center gap-3 summary-item">
                                     <Image src={product.image.src} alt={product.image.alt} width={48} height={48} className="aspect-square rounded-md object-cover" />
-                                    <div className="flex-1"><p className="text-sm font-medium leading-tight text-white">{product.name}</p><p className="text-xs text-muted-foreground">Qty: {quantity}</p></div>
-                                    <p className="text-sm font-medium text-white">₹{(product.price * quantity).toFixed(2)}</p>
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium leading-tight text-white">{variant ? `${product.name} (${variant.name})` : product.name}</p>
+                                      <p className="text-xs text-muted-foreground">Qty: {quantity}</p>
+                                    </div>
+                                    <p className="text-sm font-medium text-white">₹{((variant ? variant.price : product.price) * quantity).toFixed(2)}</p>
                                 </div>
                             ))}
                         </div>

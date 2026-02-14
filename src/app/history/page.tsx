@@ -78,7 +78,14 @@ function HistoryPageContent() {
         if (!product) {
           return null;
         }
-        return { product, quantity: orderItem.quantity };
+        
+        let variant;
+        if (orderItem.variantName) {
+            const allOptions = [{ name: product.quantityUnit, price: product.price }, ...(product.variants || [])];
+            variant = allOptions.find(v => v.name === orderItem.variantName);
+        }
+
+        return { product, quantity: orderItem.quantity, variant };
       })
       .filter((item): item is CartItem => item !== null);
 

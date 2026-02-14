@@ -57,6 +57,10 @@ export default function ProductCard({ product }: ProductCardProps) {
       {!isSoldOut && product.subCategory && (
         <Badge variant="secondary" className="absolute top-2 right-2 capitalize">{product.subCategory}</Badge>
       )}
+      
+      { product.variants && product.variants.length > 0 && !isSoldOut && (
+        <Badge variant="default" className="absolute top-2 left-2">Multiple Options</Badge>
+      )}
 
       {isSoldOut && (
         <div className="absolute inset-0 bg-background/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">

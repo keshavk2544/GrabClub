@@ -1,6 +1,6 @@
 'use client';
 
-import type { Product } from '@/lib/types';
+import type { Product, ProductVariant } from '@/lib/types';
 import React, { useState, createContext, useContext, useRef, useEffect } from 'react';
 import {
   AlertDialog,
@@ -16,9 +16,9 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { VariantSelectionDialog } from '@/components/variant-selection-dialog';
 
-// New type for items in the cart
-export type CartItem = { product: Product; quantity: number };
+export type CartItem = { product: Product; quantity: number, variant?: ProductVariant };
 
 type Animation = {
   id: number;
@@ -33,8 +33,8 @@ type CartAnimationContextType = {
   cartItems: CartItem[];
   cartCount: number;
   addToCart: (product: Product, event: React.MouseEvent<HTMLElement>) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, newQuantity: number) => void;
+  removeFromCart: (productId: string, variantName?: string) => void;
+  updateQuantity: (productId: string, newQuantity: number, variantName?: string) => void;
   getCartTotal: () => number;
   clearCart: () => void;
   replaceCart: (items: CartItem[]) => void;
@@ -49,7 +49,7 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
   
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{ title: string, description: string } | null>(null);
-  const [pendingProductInfo, setPendingProductInfo] = useState<{ product: Product; button: HTMLElement } | null>(null);
+  const [pendingProductInfo, setPendingProductInfo] = useState<{ product: Product; variant?: ProductVariant } | null>(null);
   const [pendingReorderItems, setPendingReorderItems] = useState<CartItem[] | null>(null);
   
   const buttonRef = useRef<HTMLElement | null>(null);
@@ -57,6 +57,8 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
   const [showPopup, setShowPopup] = useState(false);
   const [addedProduct, setAddedProduct] = useState<Product | null>(null);
   const isCartPage = pathname === '/cart';
+
+  const [productForVariantSelection, setProductForVariantSelection] = useState<Product | null>(null);
 
   const startAnimation = (product: Product, button: HTMLElement) => {
     const rect = button.getBoundingClientRect();
@@ -80,11 +82,13 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
     }, 1400);
   };
 
-  const addToCart = (product: Product, event: React.MouseEvent<HTMLElement>) => {
-    const button = event.currentTarget;
+  const _addToCartInternal = (product: Product, event?: React.MouseEvent<HTMLElement>, variant?: ProductVariant) => {
+    const targetButton = event?.currentTarget || buttonRef.current;
+    if (!targetButton) return;
+
     if (cartItems.length > 0 && cartItems[0].product.vendorId !== product.vendorId) {
-      setPendingProductInfo({ product, button });
-      buttonRef.current = button;
+      setPendingProductInfo({ product, variant });
+      buttonRef.current = targetButton;
       setAlertConfig({
         title: 'Clear Cart?',
         description: 'You can only order from one restaurant or store at a time. Would you like to clear your current cart and add this item?'
@@ -93,7 +97,9 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
       return;
     }
     
-    const quantityInCart = cartItems.find(item => item.product.id === product.id)?.quantity || 0;
+    const quantityInCart = cartItems.find(item => 
+        item.product.id === product.id && item.variant?.name === variant?.name
+    )?.quantity || 0;
 
     if (product.inventory <= 0 || product.inventory <= quantityInCart) {
         toast({
@@ -104,7 +110,7 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
         return;
     }
 
-    startAnimation(product, button);
+    startAnimation(product, targetButton);
     
     setAddedProduct(product);
     if (!isCartPage) {
@@ -113,15 +119,29 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
     }
 
     setCartItems(prevItems => {
-        const existingItem = prevItems.find(item => item.product.id === product.id);
-        if (existingItem) {
-            return prevItems.map(item =>
-                item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-            );
+        const existingItemIndex = prevItems.findIndex(item => 
+            item.product.id === product.id && item.variant?.name === variant?.name
+        );
+
+        if (existingItemIndex > -1) {
+            const newItems = [...prevItems];
+            newItems[existingItemIndex].quantity += 1;
+            return newItems;
+        } else {
+            return [...prevItems, { product, quantity: 1, variant }];
         }
-        return [...prevItems, { product, quantity: 1 }];
     });
   };
+
+  const addToCart = (product: Product, event: React.MouseEvent<HTMLElement>) => {
+    buttonRef.current = event.currentTarget;
+    if (product.variants && product.variants.length > 0) {
+      setProductForVariantSelection(product);
+    } else {
+      _addToCartInternal(product, event);
+    }
+  };
+
 
   const replaceCart = (items: CartItem[]) => {
     if (cartItems.length > 0) {
@@ -143,9 +163,9 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
 
   const handleConfirmClearCart = () => {
     window.localStorage.removeItem('grabclub-discount');
-    if (pendingProductInfo) {
-        const { product, button } = pendingProductInfo;
-        startAnimation(product, button);
+    if (pendingProductInfo && buttonRef.current) {
+        const { product, variant } = pendingProductInfo;
+        startAnimation(product, buttonRef.current);
         
         setAddedProduct(product);
         if (!isCartPage) {
@@ -153,7 +173,7 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
           setTimeout(() => setShowPopup(false), 4000);
         }
 
-        setCartItems([{ product, quantity: 1 }]);
+        setCartItems([{ product, quantity: 1, variant }]);
     } else if (pendingReorderItems) {
         setCartItems(pendingReorderItems);
         setAddedProduct(pendingReorderItems[0].product);
@@ -165,8 +185,10 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
     handleAlertCancel();
   };
   
-  const removeFromCart = (productId: string) => {
-    setCartItems(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (productId: string, variantName?: string) => {
+    setCartItems(prev => prev.filter(item => 
+        item.product.id !== productId || item.variant?.name !== variantName
+    ));
   };
 
   const clearCart = () => {
@@ -174,8 +196,10 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
     window.localStorage.removeItem('grabclub-discount');
   };
   
-  const updateQuantity = (productId: string, newQuantity: number) => {
-    const itemToUpdate = cartItems.find(item => item.product.id === productId);
+  const updateQuantity = (productId: string, newQuantity: number, variantName?: string) => {
+    const itemToUpdate = cartItems.find(item => 
+      item.product.id === productId && item.variant?.name === variantName
+    );
     if (!itemToUpdate) return;
     
     const { product } = itemToUpdate;
@@ -189,16 +213,21 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
     }
 
     if (newQuantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(productId, variantName);
     } else {
       setCartItems(prev => prev.map(item => 
-        item.product.id === productId ? { ...item, quantity: newQuantity } : item
+        (item.product.id === productId && item.variant?.name === variantName) 
+        ? { ...item, quantity: newQuantity } 
+        : item
       ));
     }
   };
 
   const getCartTotal = () => {
-    return cartItems.reduce((total, item) => total + item.product.price * item.quantity, 0);
+    return cartItems.reduce((total, item) => {
+      const price = item.variant ? item.variant.price : item.product.price;
+      return total + price * item.quantity;
+    }, 0);
   }
 
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
@@ -215,6 +244,14 @@ export const CartAnimationProvider = ({ children }: { children: React.ReactNode 
     <CartAnimationContext.Provider value={{ cartItems, cartCount, addToCart, removeFromCart, updateQuantity, getCartTotal, clearCart, replaceCart }}>
       {children}
       
+      <VariantSelectionDialog 
+        product={productForVariantSelection}
+        isOpen={!!productForVariantSelection}
+        setIsOpen={() => setProductForVariantSelection(null)}
+        onAddToCart={_addToCartInternal}
+        buttonRef={buttonRef}
+      />
+
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
