@@ -64,6 +64,7 @@ export default function CheckoutPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [discountApplied, setDiscountApplied] = useState(false);
+  const [isNamePreFilled, setIsNamePreFilled] = useState(false);
 
   const vendorIdInCart = useMemo(() => cartItems.length > 0 ? cartItems[0].product.vendorId : null, [cartItems]);
   
@@ -136,11 +137,12 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    // Pre-fill the receiver's name only if the user is loaded and the field hasn't been manually edited.
-    if (user && !form.formState.dirtyFields.receiverName) {
+    // Pre-fill the receiver's name only once when the user data is available.
+    if (user && !isNamePreFilled) {
       form.setValue('receiverName', user.displayName || '', { shouldValidate: true });
+      setIsNamePreFilled(true);
     }
-  }, [user, form.setValue]);
+  }, [user, isNamePreFilled, form.setValue]);
 
   useEffect(() => {
     if (!isUserLoading && !user) router.replace('/login');
