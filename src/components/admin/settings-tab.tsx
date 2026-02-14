@@ -1,4 +1,3 @@
-
 'use client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,7 +52,11 @@ export default function AdminSettingsTab() {
 
     const sortedComplaints = useMemo(() => {
         if (!complaints) return [];
-        return [...complaints].sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime());
+        return [...complaints].sort((a, b) => {
+            const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any);
+            const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any);
+            return dateB.getTime() - dateA.getTime();
+        });
     }, [complaints]);
 
     const couponsQuery = useMemoFirebase(() =>
@@ -260,7 +263,12 @@ export default function AdminSettingsTab() {
                                     </div>
                                     <div className="text-right">
                                         <Badge variant={complaint.status === 'open' ? 'destructive' : 'default'} className="capitalize">{complaint.status}</Badge>
-                                        <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(complaint.createdAt as any), { addSuffix: true })}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {formatDistanceToNow(
+                                            (complaint.createdAt as any)?.toDate ? (complaint.createdAt as any).toDate() : new Date(complaint.createdAt as any), 
+                                            { addSuffix: true }
+                                          )}
+                                        </p>
                                     </div>
                                 </div>
                                 <Separator className="my-3" />
