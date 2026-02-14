@@ -140,7 +140,7 @@ export default function CheckoutPage() {
     if (user && !form.formState.dirtyFields.receiverName) {
       form.setValue('receiverName', user.displayName || '', { shouldValidate: true });
     }
-  }, [user, form.setValue, form.formState]);
+  }, [user, form.setValue]);
 
   useEffect(() => {
     if (!isUserLoading && !user) router.replace('/login');
