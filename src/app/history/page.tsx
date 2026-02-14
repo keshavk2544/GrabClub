@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -190,6 +191,9 @@ function HistoryPageContent() {
               ? "Due to vendor unavailability, your order couldn't be confirmed." 
               : "The vendor was unable to fulfill your order at this time.";
 
+          const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+          const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal - (order.platformFee || 0));
+
           return (
             <Card key={order.id} className="overflow-hidden">
               <CardHeader className="flex flex-row items-start justify-between gap-4 bg-muted/30">
@@ -262,6 +266,23 @@ function HistoryPageContent() {
                     </div>
                   ))}
                 </div>
+                 <Separator />
+                 <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span>₹{subtotal.toFixed(2)}</span>
+                    </div>
+                    {deliveryFee > 0 && <div className="flex justify-between">
+                        <span className="text-muted-foreground">Delivery Fee</span>
+                        <span>₹{deliveryFee.toFixed(2)}</span>
+                    </div>}
+                    {order.platformFee && order.platformFee > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Platform Fee</span>
+                            <span>₹{order.platformFee.toFixed(2)}</span>
+                        </div>
+                    )}
+                </div>
               </CardContent>
               <CardFooter className="bg-muted/30 p-6 flex justify-end items-center">
                 <div className="text-right">
@@ -283,5 +304,3 @@ export default function HistoryPage() {
         </BlockedUserGuard>
     )
 }
-
-    

@@ -1,9 +1,10 @@
+
 'use client';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useMemo } from 'react';
-import type { Complaint, Coupon } from '@/lib/types';
+import { useState, useMemo, useEffect } from 'react';
+import type { Complaint, Coupon, PlatformSettings } from '@/lib/types';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -30,8 +31,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query } from 'firebase/firestore';
+import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, setDoc } from 'firebase/firestore';
 
 
 const couponSchema = z.object({
@@ -62,6 +63,16 @@ export default function AdminSettingsTab() {
     const [isComplaintsDialogOpen, setIsComplaintsDialogOpen] = useState(false);
     const [replyingTo, setReplyingTo] = useState<Complaint | null>(null);
     const [replyMessage, setReplyMessage] = useState('');
+
+    const [platformFee, setPlatformFee] = useState<number>(0);
+    const platformSettingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'platform') : null, [firestore]);
+    const { data: platformSettings, isLoading: settingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
+
+    useEffect(() => {
+        if (platformSettings) {
+            setPlatformFee(platformSettings.platformFee || 0);
+        }
+    }, [platformSettings]);
 
     const couponForm = useForm<z.infer<typeof couponSchema>>({
       resolver: zodResolver(couponSchema),
@@ -126,10 +137,43 @@ export default function AdminSettingsTab() {
             description: "The coupon has been removed.",
         });
     };
+
+    const handleSavePlatformSettings = async () => {
+        if (!firestore) return;
+        await setDoc(doc(firestore, 'settings', 'platform'), { platformFee: Number(platformFee) }, { merge: true });
+        toast({
+            title: "Platform Settings Saved",
+            description: `The platform fee has been set to ₹${platformFee.toFixed(2)}.`,
+        });
+    };
   
     return (
         <>
             <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Platform Settings</CardTitle>
+                        <CardDescription>Manage global settings for your marketplace.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            <FormLabel htmlFor="platform-fee">Platform Fee (₹)</FormLabel>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    id="platform-fee"
+                                    type="number"
+                                    value={platformFee}
+                                    onChange={(e) => setPlatformFee(Number(e.target.value))}
+                                    placeholder="e.g., 5.00"
+                                />
+                                <Button onClick={handleSavePlatformSettings}>
+                                    {settingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+                                </Button>
+                            </div>
+                            <p className="text-xs text-muted-foreground">This flat fee will be added to every order at checkout.</p>
+                        </div>
+                    </CardContent>
+                </Card>
                 <Card>
                     <CardHeader>
                         <CardTitle>Support</CardTitle>
@@ -145,7 +189,7 @@ export default function AdminSettingsTab() {
                         </div>
                     </CardContent>
                 </Card>
-                 <Card>
+                 <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Coupon Management</CardTitle>
                         <CardDescription>Create and manage discount codes for free delivery.</CardDescription>

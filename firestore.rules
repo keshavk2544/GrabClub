@@ -1,3 +1,4 @@
+
 /**
  * Core Philosophy:
  * This ruleset enforces a security model for a marketplace with authenticated users and public data.
@@ -109,6 +110,12 @@ service cloud.firestore {
     match /printRequests/{printRequestId} {
       // NOTE: Permissive for prototyping.
       allow read, write: if true;
+    }
+    
+    match /settings/{settingId} {
+      // NOTE: Public read for settings, write should be admin-only in production.
+      allow read: if true;
+      allow write: if true; // Permissive for prototyping
     }
   }
 }

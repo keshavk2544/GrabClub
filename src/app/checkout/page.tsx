@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -36,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Order, Vendor } from '@/lib/types';
+import type { Order, Vendor, PlatformSettings } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import GrabClubLoading from '@/components/layout/loading';
 import { useProducts } from '@/hooks/use-products';
@@ -69,6 +70,9 @@ export default function CheckoutPage() {
   
   const vendorRef = useMemoFirebase(() => vendorIdInCart ? doc(firestore, 'vendors', vendorIdInCart) : null, [vendorIdInCart, firestore]);
   const { data: vendor, isLoading: isVendorLoading, error: vendorError } = useDoc<Vendor>(vendorRef);
+
+  const platformSettingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'platform') : null, [firestore]);
+  const { data: platformSettings, isLoading: settingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
 
   const [isStoreOpen, setIsStoreOpen] = useState(true);
 
@@ -148,7 +152,8 @@ export default function CheckoutPage() {
 
   const subtotal = getCartTotal();
   const deliveryFee = discountApplied ? 0 : (vendor?.deliveryCharge ?? 50.00);
-  const total = subtotal + deliveryFee;
+  const platformFee = platformSettings?.platformFee ?? 0;
+  const total = subtotal + deliveryFee + platformFee;
 
   const showLocationDropdown = vendor && (vendor.deliveryLocations && vendor.deliveryLocations.length > 0);
 
@@ -181,25 +186,33 @@ export default function CheckoutPage() {
     if (!isFormValid) return;
 
     setIsSubmitting(true);
+
+    const createOrderObject = () => {
+      const baseOrder: Omit<Order, 'id' | 'orderTime' | 'deliveryTimeSlot'> & { deliveryTimeSlot?: string } = {
+          vendorId: vendor.id,
+          customerName: user!.displayName || 'Anonymous',
+          customerEmail: user!.email!,
+          customerPhone: data.phone,
+          receiverName: data.receiverName,
+          status: 'pending',
+          items: cartItems.map(item => ({ productId: item.product.id, name: item.product.name, quantity: item.quantity, price: item.product.price })),
+          total: total,
+          platformFee: platformFee,
+          deliveryLocation: showLocationDropdown ? data.deliveryLocation! : data.address!,
+      };
+      if (vendor.deliveryType === 'grabclub' && data.deliveryTimeSlot) {
+        baseOrder.deliveryTimeSlot = data.deliveryTimeSlot;
+      }
+      return baseOrder;
+    };
     
     if (data.paymentMethod === 'cod') {
-        const newOrder: Omit<Order, 'deliveryTimeSlot'> & { deliveryTimeSlot?: string } = {
+        const newOrderData = createOrderObject();
+        const newOrder: Order = {
+            ...newOrderData,
             id: `ORD-${Date.now()}`,
-            vendorId: vendor.id,
-            customerName: user!.displayName || 'Anonymous',
-            customerEmail: user!.email!,
-            customerPhone: data.phone,
-            receiverName: data.receiverName,
-            status: 'pending',
-            items: cartItems.map(item => ({ productId: item.product.id, name: item.product.name, quantity: item.quantity, price: item.product.price })),
-            total: total,
-            deliveryLocation: showLocationDropdown ? data.deliveryLocation! : data.address!,
             orderTime: new Date(),
         };
-
-        if (vendor.deliveryType === 'grabclub' && data.deliveryTimeSlot) {
-            newOrder.deliveryTimeSlot = data.deliveryTimeSlot;
-        }
 
         try {
             const orderRef = doc(firestore, 'orders', newOrder.id);
@@ -269,7 +282,6 @@ export default function CheckoutPage() {
             description: `Payment for order from ${vendor.name}`,
             order_id: razorpayOrder.id,
             handler: async function (paymentResponse: any) {
-                // 1) Verify payment signature on server (critical for production security)
                 const verifyRes = await fetch('/api/razorpay/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -285,25 +297,13 @@ export default function CheckoutPage() {
                     throw new Error(errorData.error || 'Payment verification failed.');
                 }
                 
-                // 2) Only after verification succeeds, create order
-                const newOrder: Omit<Order, 'deliveryTimeSlot'> & { deliveryTimeSlot?: string } = {
+                const newOrderData = createOrderObject();
+                const newOrder: Order = {
+                    ...newOrderData,
                     id: `ORD-${Date.now()}`,
-                    vendorId: vendor.id,
-                    customerName: user!.displayName || 'Anonymous',
-                    customerEmail: user!.email!,
-                    customerPhone: data.phone,
-                    receiverName: data.receiverName,
-                    status: 'pending',
-                    items: cartItems.map(item => ({ productId: item.product.id, name: item.product.name, quantity: item.quantity, price: item.product.price })),
-                    total: total,
-                    deliveryLocation: showLocationDropdown ? data.deliveryLocation! : data.address!,
                     orderTime: new Date(),
                     verificationCode: Math.floor(1000 + Math.random() * 9000).toString(),
                 };
-
-                if (vendor.deliveryType === 'grabclub' && data.deliveryTimeSlot) {
-                    newOrder.deliveryTimeSlot = data.deliveryTimeSlot;
-                }
 
                 const orderRef = doc(firestore, 'orders', newOrder.id);
                 await setDoc(orderRef, newOrder);
@@ -350,7 +350,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (isUserLoading || !user || cartItems.length === 0 || isVendorLoading) {
+  if (isUserLoading || !user || cartItems.length === 0 || isVendorLoading || settingsLoading) {
     return <GrabClubLoading />;
   }
   
@@ -503,6 +503,9 @@ export default function CheckoutPage() {
                         <div className="space-y-2">
                             <div className="summary-item"><span className="item-name">Subtotal</span><span className="item-value">₹{subtotal.toFixed(2)}</span></div>
                             <div className="summary-item"><span className="item-name">Delivery Fee</span><span className="item-value">{discountApplied ? <span className="text-green-500 font-semibold">FREE</span> : `₹${deliveryFee.toFixed(2)}`}</span></div>
+                            {platformFee > 0 && (
+                                <div className="summary-item"><span className="item-name">Platform Fee</span><span className="item-value">₹{platformFee.toFixed(2)}</span></div>
+                            )}
                         </div>
                         <div className="total-section">
                             <div className="total-row">

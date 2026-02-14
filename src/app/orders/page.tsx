@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -85,7 +86,10 @@ function OrdersPageContent() {
         }
 
         const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        if (order.total > subtotal) {
+        const platformFee = order.platformFee || 0;
+        
+        // Only apply coupon if there's a delivery fee to waive
+        if (order.total > (subtotal + platformFee)) {
             const batch = writeBatch(firestore);
 
             const couponRef = doc(firestore, 'coupons', coupon.id);
@@ -93,7 +97,7 @@ function OrdersPageContent() {
 
             const orderRef = doc(firestore, 'orders', order.id);
             batch.update(orderRef, {
-                total: subtotal,
+                total: subtotal + platformFee,
                 couponApplied: true,
                 couponCode: code,
             });
@@ -179,7 +183,7 @@ function OrdersPageContent() {
            const isActive = order.status === 'accepted' || order.status === 'out for delivery';
            const displayStatus = getDisplayStatus(order.status);
            const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-           const deliveryFee = order.total - subtotal;
+           const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal - (order.platformFee || 0));
 
           return (
             <Card key={order.id} className={cn(
@@ -242,6 +246,12 @@ function OrdersPageContent() {
                             <span>₹{deliveryFee.toFixed(2)}</span>
                         )}
                     </div>
+                    {order.platformFee && order.platformFee > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Platform Fee</span>
+                            <span>₹{order.platformFee.toFixed(2)}</span>
+                        </div>
+                    )}
                 </div>
               </CardContent>
               <CardFooter className={cn(
@@ -250,7 +260,7 @@ function OrdersPageContent() {
               )}>
                 {order.status === 'pending payment' ? (
                   <>
-                    {!order.couponApplied ? (
+                    {!order.couponApplied && deliveryFee > 0 ? (
                         <div className="space-y-2">
                             <Label htmlFor={`coupon-${order.id}`} className="flex items-center gap-2 text-sm text-muted-foreground"><Ticket className="w-4 h-4" /> Apply Coupon</Label>
                             <div className="flex gap-2">
@@ -259,7 +269,7 @@ function OrdersPageContent() {
                             </div>
                         </div>
                     ) : (
-                        <div className="text-center text-sm font-semibold text-green-500 flex items-center justify-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
+                        order.couponApplied && <div className="text-center text-sm font-semibold text-green-500 flex items-center justify-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
                             <CheckCircle className="w-4 h-4" />
                             Coupon for Free Delivery Applied!
                         </div>

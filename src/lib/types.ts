@@ -1,4 +1,5 @@
 
+
 export type Category = {
   id: string;
   name: string;
@@ -72,6 +73,7 @@ export type Order = {
   rejectionReason?: 'vendor_unavailable' | 'vendor_rejected' | 'payment_timed_out';
   couponApplied?: boolean;
   couponCode?: string;
+  platformFee?: number;
 };
 
 export type CartItem = { product: Product; quantity: number };
@@ -160,4 +162,9 @@ export type Coupon = {
   code: string;
   usageLimit: number;
   timesUsed: number;
+};
+
+export type PlatformSettings = {
+  id: 'platform';
+  platformFee: number;
 };
