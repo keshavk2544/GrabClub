@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -427,6 +428,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support a public-facing product marketplace with user authentication. The structure focuses on organizing public data for vendors and their products, while also storing user-specific data and information about delivery personnel.\n\nUsers:\n*   User profiles are stored in a top-level `/users` collection, with the document ID being the user's UID.\n\nVendors and Products:\n*   Vendors are stored in a top-level `/vendors` collection.\n*   Products are stored as subcollections under each vendor (`/vendors/{vendorId}/products`). This reflects the Vendor 1:N Product relationship.\n\nDelivery People:\n*   Delivery personnel are stored in a top-level `/deliveryPeople` collection.\n\nOrders and Requests: Orders, medicine requests, complaints, and coupons are all stored in their own top-level collections for easy querying by admins, vendors, and users."
+    "reasoning": "The Firestore structure is designed to support a public-facing product marketplace with user authentication. The structure focuses on organizing public data for vendors and their products, while also storing user-specific data and information about delivery personnel.\\n\\nUsers:\\n*   User profiles are stored in a top-level `/users` collection, with the document ID being the user's UID.\\n\\nVendors and Products:\\n*   Vendors are stored in a top-level `/vendors` collection.\\n*   Products are stored as subcollections under each vendor (`/vendors/{vendorId}/products`). This reflects the Vendor 1:N Product relationship.\\n\\nDelivery People:\\n*   Delivery personnel are stored in a top-level `/deliveryPeople` collection.\\n\\nOrders and Requests: Orders, medicine requests, complaints, and coupons are all stored in their own top-level collections for easy querying by admins, vendors, and users."
   }
 }
