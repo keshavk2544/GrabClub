@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Image from 'next/image';
 
-import type { MedicineRequest, Order } from '@/lib/types';
+import type { MedicineRequest, Order, Vendor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Plus, Trash2, Loader2, FileText, Type } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 
 const lineItemSchema = z.object({
@@ -40,6 +40,10 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
     const firestore = useFirestore();
     const [isSubmitting, setIsSubmitting] = useState(false);
     
+    // Fetch the pharmacy vendor details to get the dynamic delivery charge
+    const vendorRef = useMemoFirebase(() => firestore ? doc(firestore, 'vendors', 'pharmaplus') : null, [firestore]);
+    const { data: vendor } = useDoc<Vendor>(vendorRef);
+
     const form = useForm<z.infer<typeof createOrderSchema>>({
         resolver: zodResolver(createOrderSchema),
         defaultValues: {
@@ -54,7 +58,9 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
     });
 
     const watchedItems = form.watch('items');
-    const deliveryFee = 50.00;
+    
+    // Use the delivery charge from the fetched vendor, with a fallback
+    const deliveryFee = vendor?.deliveryCharge ?? 50.00;
     const subtotal = watchedItems.reduce((acc, item) => acc + (item.price || 0) * (item.quantity || 0), 0);
     const total = subtotal + deliveryFee;
 
@@ -165,7 +171,7 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
             <DialogFooter>
                 <div className="w-full flex justify-between items-center">
                     <div className="text-lg font-bold">
-                        Item Total: ₹{subtotal.toFixed(2)}
+                        Item Total: ₹{subtotal.toFixed(2)} (+ ₹{deliveryFee.toFixed(2)} Delivery)
                     </div>
                      <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
