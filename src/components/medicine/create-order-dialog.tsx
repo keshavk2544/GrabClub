@@ -146,7 +146,7 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
                 </div>
 
                 <Form {...form}>
-                    <form className="space-y-4">
+                    <form className="space-y-4 overflow-y-auto">
                         <h3 className="font-semibold">Order Items</h3>
                         <div className="space-y-3">
                              {fields.map((field, index) => (
@@ -170,8 +170,11 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
             </div>
             <DialogFooter>
                 <div className="w-full flex justify-between items-center">
-                    <div className="text-lg font-bold">
-                        Item Total: ₹{subtotal.toFixed(2)} (+ ₹{deliveryFee.toFixed(2)} Delivery)
+                    <div>
+                        <div className="text-lg font-bold">
+                            Item Total: ₹{subtotal.toFixed(2)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Delivery fee (₹{deliveryFee.toFixed(2)}) will be added for the customer.</p>
                     </div>
                      <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
