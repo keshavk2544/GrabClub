@@ -142,7 +142,7 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
                 <Form {...form}>
                     <form className="space-y-4">
                         <h3 className="font-semibold">Order Items</h3>
-                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                        <div className="space-y-3">
                              {fields.map((field, index) => (
                                 <div key={field.id} className="flex items-end gap-2 p-3 border rounded-md">
                                     <div className="grid grid-cols-[1fr_80px_80px] gap-2 flex-1">
