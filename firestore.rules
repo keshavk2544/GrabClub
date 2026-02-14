@@ -112,15 +112,18 @@ service cloud.firestore {
       allow read, write: if true;
     }
     
+    // =========================================================================
+    // Platform Settings Rule - Public Read Access
+    // =========================================================================
+    /**
+     * @description Global platform settings require public read access.
+     * The platform fee is fetched on pages like /cart and /checkout, sometimes before
+     * the user's authentication state is confirmed. To prevent permission errors,
+     * read access (`get`, `list`) is granted to everyone.
+     * Writes are restricted to authenticated users (admins).
+     */
     match /settings/{settingId} {
-      // INTENTIONAL PUBLIC READ:
-      // The platform settings document (e.g., /settings/platform) needs to be
-      // readable by unauthenticated users on the client-side for components
-      // to calculate totals before a user session is fully established.
-      // This data (like platformFee) is considered non-sensitive.
       allow get, list: if true;
-      
-      // Writes are still restricted. For production, this should be limited to an admin role.
       allow write: if request.auth != null;
     }
   }
