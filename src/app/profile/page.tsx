@@ -2,7 +2,7 @@
 
 import { useUser } from '@/firebase/auth/use-user';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { getAuth, signOut } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -27,6 +27,9 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import BlockedUserGuard from '@/components/blocked-user-guard';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where, addDoc } from 'firebase/firestore';
+
 
 const complaintSchema = z.object({
   orderCode: z.string().min(1, { message: "Please enter the order code." }),
@@ -41,10 +44,29 @@ function ProfilePageContent() {
   const searchParams = useSearchParams();
   const auth = getAuth();
   const { toast } = useToast();
+  const firestore = useFirestore();
+
   const [showComplaintForm, setShowComplaintForm] = useState(false);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [userComplaints, setUserComplaints] = useState<Complaint[]>([]);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+
+  const ordersQuery = useMemoFirebase(() => 
+    firestore && user?.email ? query(collection(firestore, 'orders'), where('customerEmail', '==', user.email)) : null
+  , [firestore, user]);
+  const { data: orders } = useCollection<Order>(ordersQuery);
+
+  const complaintsQuery = useMemoFirebase(() => 
+    firestore && user?.email ? query(collection(firestore, 'complaints'), where('userEmail', '==', user.email)) : null
+  , [firestore, user]);
+  const { data: userComplaintsData } = useCollection<Complaint>(complaintsQuery);
+
+  const userComplaints = useMemo(() => {
+    if (!userComplaintsData) return [];
+    return [...userComplaintsData].sort((a, b) => {
+        const dateA = (a.createdAt as any).toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt);
+        const dateB = (b.createdAt as any).toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+    });
+  }, [userComplaintsData]);
 
   const complaintForm = useForm<z.infer<typeof complaintSchema>>({
     resolver: zodResolver(complaintSchema),
@@ -56,35 +78,6 @@ function ProfilePageContent() {
 
   useEffect(() => {
     if (!user) return;
-    
-    // Load orders from localStorage for complaint validation
-    try {
-        const storedOrders = window.localStorage.getItem('grabclub-orders');
-        if (storedOrders) {
-            setOrders(JSON.parse(storedOrders));
-        }
-    } catch (error) {
-        console.error("Failed to load orders for complaint validation.", error);
-    }
-
-    // Load user's complaints from localStorage
-    try {
-        const storedComplaints = window.localStorage.getItem('grabclub-complaints');
-        if (storedComplaints) {
-            const allComplaints: Complaint[] = JSON.parse(storedComplaints).map((c: any) => ({
-                ...c,
-                createdAt: new Date(c.createdAt),
-            }));
-            setUserComplaints(
-                allComplaints
-                    .filter(c => c.userEmail === user.email)
-                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-            );
-        }
-    } catch (error) {
-        console.error("Failed to load user complaints.", error);
-    }
-
     const complaintCode = searchParams.get('complaint_code');
     if (complaintCode) {
         setShowComplaintForm(true);
@@ -97,8 +90,15 @@ function ProfilePageContent() {
     router.push('/login');
   };
   
-  function onComplaintSubmit(data: z.infer<typeof complaintSchema>) {
-    // Validate order code
+  async function onComplaintSubmit(data: z.infer<typeof complaintSchema>) {
+    if (!orders) {
+        toast({
+            variant: "destructive",
+            title: "Orders still loading",
+            description: "Please wait a moment and try again.",
+        });
+        return;
+    }
     const orderExists = orders.some(order => order.verificationCode === data.orderCode || order.id === data.orderCode);
 
     if (!orderExists) {
@@ -110,8 +110,7 @@ function ProfilePageContent() {
         return;
     }
 
-    const newComplaint: Complaint = {
-        id: `COMP-${Date.now()}`,
+    const newComplaint: Omit<Complaint, 'id'> = {
         orderCode: data.orderCode,
         complaint: data.complaint,
         userEmail: user!.email!,
@@ -121,13 +120,9 @@ function ProfilePageContent() {
     };
 
     try {
-        const existingComplaintsJSON = window.localStorage.getItem('grabclub-complaints');
-        const existingComplaints: Complaint[] = existingComplaintsJSON ? JSON.parse(existingComplaintsJSON) : [];
-        const updatedComplaints = [newComplaint, ...existingComplaints];
-        window.localStorage.setItem('grabclub-complaints', JSON.stringify(updatedComplaints));
+        if (!firestore) throw new Error("Firestore is not available.");
+        await addDoc(collection(firestore, 'complaints'), newComplaint);
         
-        setUserComplaints(prev => [newComplaint, ...prev].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
-
         toast({
           title: "Complaint Submitted",
           description: "We have received your complaint and will look into it shortly.",
@@ -257,7 +252,7 @@ function ProfilePageContent() {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="font-semibold">Order: #{complaint.orderCode}</p>
-                                    <p className="text-xs text-muted-foreground">{new Date(complaint.createdAt).toLocaleString()}</p>
+                                    <p className="text-xs text-muted-foreground">{((complaint.createdAt as any).toDate ? (complaint.createdAt as any).toDate() : new Date(complaint.createdAt)).toLocaleString()}</p>
                                 </div>
                                 <Badge variant={complaint.status === 'resolved' ? 'default' : 'destructive'} className="capitalize">{complaint.status}</Badge>
                             </div>
