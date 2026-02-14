@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import type { Order, Vendor } from '@/lib/types';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCollection, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, updateDoc } from 'firebase/firestore';
@@ -98,6 +98,11 @@ export default function VegetableOrdersTab() {
                   <div className="flex justify-between items-center">
                     <p className="font-bold text-lg">Total: ₹{order.total.toFixed(2)}</p>
                     <div className="flex gap-2">
+                       <Button asChild size="sm" variant="outline" disabled={!order.customerPhone}>
+                            <a href={order.customerPhone ? `tel:${order.customerPhone}` : undefined}>
+                                <Phone className="mr-1 h-4 w-4"/> Call
+                            </a>
+                        </Button>
                       <Button size="sm" variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20" onClick={() => handleUpdateStatus(order.id, 'rejected')}><X className="mr-1 h-4 w-4"/> Reject</Button>
                       <Button size="sm" className="bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20" onClick={() => handleUpdateStatus(order.id, 'accepted')}><Check className="mr-1 h-4 w-4"/> Accept</Button>
                     </div>
