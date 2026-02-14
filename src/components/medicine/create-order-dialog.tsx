@@ -174,7 +174,6 @@ export function CreateOrderDialog({ isOpen, setIsOpen, request, onOrderCreated }
                         <div className="text-lg font-bold">
                             Item Total: ₹{subtotal.toFixed(2)}
                         </div>
-                        <p className="text-xs text-muted-foreground">Delivery fee (₹{deliveryFee.toFixed(2)}) will be added for the customer.</p>
                     </div>
                      <Button type="button" onClick={form.handleSubmit(onSubmit)} disabled={isSubmitting}>
                         {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
