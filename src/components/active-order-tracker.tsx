@@ -10,16 +10,18 @@ import { cn } from '@/lib/utils';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 import { usePathname } from 'next/navigation';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, writeBatch, doc, updateDoc } from 'firebase/firestore';
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 export default function ActiveOrderTracker() {
   const pathname = usePathname();
@@ -27,6 +29,8 @@ export default function ActiveOrderTracker() {
   const firestore = useFirestore();
   const prevOrdersRef = useRef<Order[]>();
   const [notification, setNotification] = useState<{ title: string; description: string; status: Order['status'] } | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<Order | null>(null);
+  const { toast } = useToast();
 
   const allUserOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
@@ -164,6 +168,36 @@ export default function ActiveOrderTracker() {
   
   const isLoading = ordersLoading || vendorsLoading;
 
+  const handleOpenCancelDialog = useCallback((order: Order) => {
+    setOrderToCancel(order);
+  }, []);
+
+  const handleConfirmCancel = useCallback(async () => {
+    if (!orderToCancel || !firestore) return;
+
+    const orderRef = doc(firestore, 'orders', orderToCancel.id);
+    try {
+        await updateDoc(orderRef, {
+            status: 'rejected',
+            rejectionReason: 'payment_cancelled_by_user'
+        });
+
+        toast({
+            title: 'Order Cancelled',
+            description: `Your order #${orderToCancel.id.split('-').pop()} has been cancelled.`,
+        });
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: 'Error',
+            description: `Could not cancel the order. Please try again.`,
+        });
+        console.error("Error cancelling order: ", error);
+    } finally {
+        setOrderToCancel(null);
+    }
+  }, [orderToCancel, firestore, toast]);
+
   if (isLoading || pathname === '/login' || pathname.startsWith('/admin') || pathname.startsWith('/food-dashboard') || pathname.startsWith('/grocery-dashboard') || pathname.startsWith('/fruits-dashboard') || pathname.startsWith('/vegetable-dashboard') || pathname.startsWith('/bakery-dashboard') || pathname.startsWith('/sweets-dashboard') || pathname.startsWith('/medicine-dashboard') || pathname.startsWith('/cyber-dashboard') || pathname.startsWith('/delivery-dashboard')) {
     return null;
   }
@@ -200,11 +234,21 @@ export default function ActiveOrderTracker() {
                                                         <p className="text-xs text-muted-foreground">Total: ₹{order.total.toFixed(2)}</p>
                                                     </div>
                                                 </div>
-                                                <Link href={`/payment/${order.id}`} passHref>
-                                                    <Button variant="ghost" size="sm" className="h-auto px-3 py-1 bg-primary/10 text-primary hover:bg-primary/20">
-                                                        Pay Now <ChevronRight className="h-4 w-4 ml-1" />
+                                                <div className="flex flex-col items-end gap-1.5">
+                                                    <Link href={`/payment/${order.id}`} passHref>
+                                                        <Button variant="ghost" size="sm" className="h-auto px-3 py-1 bg-primary/10 text-primary hover:bg-primary/20 w-full">
+                                                            Pay Now <ChevronRight className="h-4 w-4 ml-1" />
+                                                        </Button>
+                                                    </Link>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-auto px-3 py-1 bg-destructive/10 text-destructive hover:bg-destructive/20 w-full"
+                                                        onClick={() => handleOpenCancelDialog(order)}
+                                                    >
+                                                        <XCircle className="h-4 w-4 mr-1" /> Cancel
                                                     </Button>
-                                                </Link>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -285,6 +329,27 @@ export default function ActiveOrderTracker() {
             </Carousel>
         </div>
       )}
+      <AlertDialog open={!!orderToCancel} onOpenChange={(open) => !open && setOrderToCancel(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    {orderToCancel?.vendorId === 'pharmaplus' 
+                    ? "This will cancel your medicine request. Are you sure you don't need these items?" 
+                    : "This will cancel your order. This action cannot be undone."}
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Go Back</AlertDialogCancel>
+                <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={handleConfirmCancel}
+                >
+                    Yes, Cancel Order
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       <AlertDialog open={!!notification} onOpenChange={() => setNotification(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>
