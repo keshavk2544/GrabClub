@@ -86,10 +86,9 @@ function OrdersPageContent() {
         }
 
         const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const platformFee = order.platformFee || 0;
         
         // Only apply coupon if there's a delivery fee to waive
-        if (order.total > (subtotal + platformFee)) {
+        if (order.total > subtotal) {
             const batch = writeBatch(firestore);
 
             const couponRef = doc(firestore, 'coupons', coupon.id);
@@ -97,7 +96,7 @@ function OrdersPageContent() {
 
             const orderRef = doc(firestore, 'orders', order.id);
             batch.update(orderRef, {
-                total: subtotal + platformFee,
+                total: subtotal,
                 couponApplied: true,
                 couponCode: code,
             });
@@ -183,7 +182,7 @@ function OrdersPageContent() {
            const isActive = order.status === 'accepted' || order.status === 'out for delivery';
            const displayStatus = getDisplayStatus(order.status);
            const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-           const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal - (order.platformFee || 0));
+           const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal);
 
           return (
             <Card key={order.id} className={cn(
@@ -246,12 +245,6 @@ function OrdersPageContent() {
                             <span>₹{deliveryFee.toFixed(2)}</span>
                         )}
                     </div>
-                    {order.platformFee && order.platformFee > 0 && (
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Platform Fee</span>
-                            <span>₹{order.platformFee.toFixed(2)}</span>
-                        </div>
-                    )}
                 </div>
               </CardContent>
               <CardFooter className={cn(

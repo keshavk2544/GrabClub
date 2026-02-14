@@ -192,7 +192,7 @@ function HistoryPageContent() {
               : "The vendor was unable to fulfill your order at this time.";
 
           const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-          const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal - (order.platformFee || 0));
+          const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal);
 
           return (
             <Card key={order.id} className="overflow-hidden">
@@ -276,12 +276,6 @@ function HistoryPageContent() {
                         <span className="text-muted-foreground">Delivery Fee</span>
                         <span>₹{deliveryFee.toFixed(2)}</span>
                     </div>}
-                    {order.platformFee && order.platformFee > 0 && (
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Platform Fee</span>
-                            <span>₹{order.platformFee.toFixed(2)}</span>
-                        </div>
-                    )}
                 </div>
               </CardContent>
               <CardFooter className="bg-muted/30 p-6 flex justify-end items-center">

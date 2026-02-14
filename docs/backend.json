@@ -245,7 +245,6 @@
           "items": { "$ref": "#/entities/OrderItem" }
         },
         "total": { "type": "number" },
-        "platformFee": { "type": "number" },
         "deliveryLocation": { "type": "string" },
         "deliveryTimeSlot": { "type": "string" },
         "orderTime": { "type": "string", "format": "date-time" },
@@ -339,18 +338,6 @@
         "pickupTimeSlot": { "type": "string" }
       },
       "required": ["id", "userId", "userName", "phone", "fileName", "fileDataUrl", "printType", "pageCount", "totalCost", "status", "createdAt", "pickupLocation", "pickupTimeSlot"]
-    },
-    "PlatformSettings": {
-      "title": "Platform Settings",
-      "description": "Global settings for the Campus Cart platform.",
-      "type": "object",
-      "properties": {
-        "platformFee": {
-          "type": "number",
-          "description": "A flat fee added to every order."
-        }
-      },
-      "required": ["platformFee"]
     }
   },
   "auth": {
@@ -439,16 +426,8 @@
             "schema": { "$ref": "#/entities/PrintRequest" },
             "description": "Stores user-submitted requests for printing."
         }
-      },
-      {
-        "path": "/settings/{settingId}",
-        "definition": {
-          "entityName": "PlatformSettings",
-          "schema": { "$ref": "#/entities/PlatformSettings" },
-          "description": "Stores global platform settings. Use a specific document ID like 'platform' for singleton settings."
-        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support a public-facing product marketplace with user authentication. The structure focuses on organizing public data for vendors and their products, while also storing user-specific data and information about delivery personnel.\\n\\nUsers:\\n*   User profiles are stored in a top-level `/users` collection, with the document ID being the user's UID.\\n\\nVendors and Products:\\n*   Vendors are stored in a top-level `/vendors` collection.\\n*   Products are stored as subcollections under each vendor (`/vendors/{vendorId}/products`). This reflects the Vendor 1:N Product relationship.\\n\\nDelivery People:\\n*   Delivery personnel are stored in a top-level `/deliveryPeople` collection.\\n\\nOrders and Requests: Orders, medicine requests, complaints, and coupons are all stored in their own top-level collections for easy querying by admins, vendors, and users.\\n\\nSettings:\\n* A top-level `/settings` collection is used for global configuration, such as platform fees."
+    "reasoning": "The Firestore structure is designed to support a public-facing product marketplace with user authentication. The structure focuses on organizing public data for vendors and their products, while also storing user-specific data and information about delivery personnel.\\n\\nUsers:\\n*   User profiles are stored in a top-level `/users` collection, with the document ID being the user's UID.\\n\\nVendors and Products:\\n*   Vendors are stored in a top-level `/vendors` collection.\\n*   Products are stored as subcollections under each vendor (`/vendors/{vendorId}/products`). This reflects the Vendor 1:N Product relationship.\\n\\nDelivery People:\\n*   Delivery personnel are stored in a top-level `/deliveryPeople` collection.\\n\\nOrders and Requests: Orders, medicine requests, complaints, and coupons are all stored in their own top-level collections for easy querying by admins, vendors, and users."
   }
 }
