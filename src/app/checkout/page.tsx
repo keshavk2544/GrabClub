@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -64,7 +65,7 @@ export default function CheckoutPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [discountApplied, setDiscountApplied] = useState(false);
-  const [isNamePreFilled, setIsNamePreFilled] = useState(false);
+  const namePrefilled = useRef(false);
 
   const vendorIdInCart = useMemo(() => cartItems.length > 0 ? cartItems[0].product.vendorId : null, [cartItems]);
   
@@ -137,12 +138,14 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    // Pre-fill the receiver's name only once when the user data is available.
-    if (user && !isNamePreFilled) {
+    // This effect runs when the user object loads.
+    // It uses a ref to ensure it only pre-fills the name one time.
+    if (user && !namePrefilled.current) {
       form.setValue('receiverName', user.displayName || '', { shouldValidate: true });
-      setIsNamePreFilled(true);
+      // Set the ref to true so this block never runs again for this component instance.
+      namePrefilled.current = true;
     }
-  }, [user, isNamePreFilled, form.setValue]);
+  }, [user, form]);
 
   useEffect(() => {
     if (!isUserLoading && !user) router.replace('/login');
