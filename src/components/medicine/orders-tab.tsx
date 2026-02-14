@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
-import { FileText, Type, CheckCircle, Clock, Archive, Truck,ChevronDown, X } from 'lucide-react';
+import { FileText, Type, CheckCircle, Clock, Archive, Truck,ChevronDown, X, Phone } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Dialog,
@@ -124,7 +124,16 @@ export default function MedicineOrdersTab() {
                                 <Card key={req.id} className="bg-primary/10 border-primary/20">
                                     <CardHeader className="flex flex-row items-start justify-between">
                                         <div>
-                                            <CardTitle className="text-lg">{req.receiverName}</CardTitle>
+                                            <div className="flex items-center gap-2">
+                                                <CardTitle className="text-lg">{req.receiverName}</CardTitle>
+                                                {req.phone && (
+                                                    <Button asChild size="icon" variant="ghost" className="h-6 w-6">
+                                                        <a href={`tel:${req.phone}`}>
+                                                            <Phone className="h-4 w-4 text-muted-foreground" />
+                                                        </a>
+                                                    </Button>
+                                                )}
+                                            </div>
                                             <CardDescription>
                                                 {req.userName}
                                             </CardDescription>
