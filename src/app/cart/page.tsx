@@ -14,6 +14,8 @@ import type { Coupon, Vendor } from '@/lib/types';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 
+const PLATFORM_FEE = 1.69;
+
 const ConfettiExplosion = () => {
     const [pieces, setPieces] = useState<number[]>([]);
 
@@ -131,9 +133,10 @@ export default function CartPage() {
     }
   };
 
+  const subtotal = getCartTotal();
   const baseDeliveryFee = vendor?.deliveryCharge ?? 50.00;
   const deliveryFee = discountApplied ? 0 : baseDeliveryFee;
-  const total = getCartTotal() + deliveryFee;
+  const total = subtotal + deliveryFee + (subtotal > 0 ? PLATFORM_FEE : 0);
 
   const pageContent = (
     <>
@@ -203,7 +206,7 @@ export default function CartPage() {
                 <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Subtotal</span>
-                        <span>₹{getCartTotal().toFixed(2)}</span>
+                        <span>₹{subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Delivery Fee</span>
@@ -213,6 +216,12 @@ export default function CartPage() {
                             <span>₹{deliveryFee.toFixed(2)}</span>
                         )}
                     </div>
+                     {subtotal > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Platform Fee</span>
+                        <span>₹{PLATFORM_FEE.toFixed(2)}</span>
+                      </div>
+                    )}
                      <div className="flex justify-between text-base font-bold pt-4 border-t border-border/20 mt-4">
                         <span>Total</span>
                         <span>₹{total.toFixed(2)}</span>

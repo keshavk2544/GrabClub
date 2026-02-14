@@ -59,8 +59,9 @@ export default function PaymentPage() {
       }
       
       const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const platformFee = order.platformFee || 0;
 
-      if (order.total > subtotal) { // Check if a delivery fee was applied
+      if (order.total > (subtotal + platformFee)) { // Check if a delivery fee was applied
         const batch = writeBatch(firestore);
 
         const couponRef = doc(firestore, 'coupons', coupon.id);
@@ -68,7 +69,7 @@ export default function PaymentPage() {
         
         if(orderRef) {
              batch.update(orderRef, {
-                total: subtotal,
+                total: subtotal + platformFee,
                 couponApplied: true,
                 couponCode: code,
             });
@@ -217,7 +218,8 @@ export default function PaymentPage() {
   }
   
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = 50.00;
+  const platformFee = order.platformFee || 0;
+  const deliveryFee = order.total - subtotal - platformFee;
 
   return (
     <div className="container py-12 sm:py-16">
@@ -242,17 +244,23 @@ export default function PaymentPage() {
                             <span className="text-muted-foreground">Subtotal</span>
                             <span>₹{subtotal.toFixed(2)}</span>
                         </div>
+                        {platformFee > 0 && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Platform Fee</span>
+                                <span>₹{platformFee.toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Delivery Fee</span>
                              {order.couponApplied ? (
-                                <span className="text-green-500 font-semibold"><s>₹{deliveryFee.toFixed(2)}</s> FREE</span>
+                                <span className="text-green-500 font-semibold">FREE</span>
                             ) : (
                                 <span>₹{deliveryFee.toFixed(2)}</span>
                             )}
                         </div>
                     </div>
                     <Separator />
-                    {!order.couponApplied ? (
+                    {!order.couponApplied && deliveryFee > 0 ? (
                         <div className="space-y-2 pt-2">
                             <Label htmlFor="coupon-code" className="text-sm font-medium flex items-center gap-2"><Ticket className="w-4 h-4" /> Apply Coupon</Label>
                              <div className="flex gap-2">
@@ -270,7 +278,7 @@ export default function PaymentPage() {
                             </div>
                         </div>
                     ) : (
-                         <div className="text-sm font-semibold text-green-500 flex items-center justify-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
+                         order.couponApplied && <div className="text-sm font-semibold text-green-500 flex items-center justify-center gap-2 p-2 rounded-md bg-green-500/10 border border-green-500/20">
                             <CheckCircle className="w-4 h-4" />
                             Coupon for Free Delivery Applied!
                         </div>

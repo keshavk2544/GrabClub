@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -88,7 +87,7 @@ function OrdersPageContent() {
         const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
         
         // Only apply coupon if there's a delivery fee to waive
-        if (order.total > subtotal) {
+        if (order.total > (subtotal + (order.platformFee || 0))) {
             const batch = writeBatch(firestore);
 
             const couponRef = doc(firestore, 'coupons', coupon.id);
@@ -96,7 +95,7 @@ function OrdersPageContent() {
 
             const orderRef = doc(firestore, 'orders', order.id);
             batch.update(orderRef, {
-                total: subtotal,
+                total: subtotal + (order.platformFee || 0),
                 couponApplied: true,
                 couponCode: code,
             });
@@ -182,7 +181,9 @@ function OrdersPageContent() {
            const isActive = order.status === 'accepted' || order.status === 'out for delivery';
            const displayStatus = getDisplayStatus(order.status);
            const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-           const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal);
+           const platformFee = order.platformFee || 0;
+           const deliveryFee = order.total - subtotal - platformFee;
+
 
           return (
             <Card key={order.id} className={cn(
@@ -237,6 +238,12 @@ function OrdersPageContent() {
                         <span className="text-muted-foreground">Subtotal</span>
                         <span>₹{subtotal.toFixed(2)}</span>
                     </div>
+                    {platformFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Platform Fee</span>
+                        <span>₹{platformFee.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Delivery Fee</span>
                         {order.couponApplied ? (

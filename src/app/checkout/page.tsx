@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -45,6 +43,7 @@ import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import BlockedUserGuard from '@/components/blocked-user-guard';
 
+const PLATFORM_FEE = 1.69;
 
 const checkoutSchema = z.object({
   address: z.string().optional(),
@@ -149,7 +148,7 @@ export default function CheckoutPage() {
 
   const subtotal = getCartTotal();
   const deliveryFee = discountApplied ? 0 : (vendor?.deliveryCharge ?? 50.00);
-  const total = subtotal + deliveryFee;
+  const total = subtotal + deliveryFee + (subtotal > 0 ? PLATFORM_FEE : 0);
 
   const showLocationDropdown = vendor && (vendor.deliveryLocations && vendor.deliveryLocations.length > 0);
 
@@ -193,6 +192,7 @@ export default function CheckoutPage() {
           status: 'pending',
           items: cartItems.map(item => ({ productId: item.product.id, name: item.product.name, quantity: item.quantity, price: item.product.price })),
           total: total,
+          platformFee: subtotal > 0 ? PLATFORM_FEE : 0,
           deliveryLocation: showLocationDropdown ? data.deliveryLocation! : data.address!,
       };
       if (vendor.deliveryType === 'grabclub' && data.deliveryTimeSlot) {
@@ -498,6 +498,12 @@ export default function CheckoutPage() {
                         <div className="space-y-2">
                             <div className="summary-item"><span className="item-name">Subtotal</span><span className="item-value">₹{subtotal.toFixed(2)}</span></div>
                             <div className="summary-item"><span className="item-name">Delivery Fee</span><span className="item-value">{discountApplied ? <span className="text-green-500 font-semibold">FREE</span> : `₹${deliveryFee.toFixed(2)}`}</span></div>
+                             {subtotal > 0 && (
+                                <div className="summary-item">
+                                    <span className="item-name">Platform Fee</span>
+                                    <span className="item-value">₹{PLATFORM_FEE.toFixed(2)}</span>
+                                </div>
+                            )}
                         </div>
                         <div className="total-section">
                             <div className="total-row">

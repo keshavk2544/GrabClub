@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -192,7 +191,8 @@ function HistoryPageContent() {
               : "The vendor was unable to fulfill your order at this time.";
 
           const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-          const deliveryFee = order.couponApplied ? 0 : (order.total - subtotal);
+          const platformFee = order.platformFee || 0;
+          const deliveryFee = order.total - subtotal - platformFee;
 
           return (
             <Card key={order.id} className="overflow-hidden">
@@ -272,10 +272,16 @@ function HistoryPageContent() {
                         <span className="text-muted-foreground">Subtotal</span>
                         <span>₹{subtotal.toFixed(2)}</span>
                     </div>
-                    {deliveryFee > 0 && <div className="flex justify-between">
+                    {platformFee > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Platform Fee</span>
+                            <span>₹{platformFee.toFixed(2)}</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between">
                         <span className="text-muted-foreground">Delivery Fee</span>
-                        <span>₹{deliveryFee.toFixed(2)}</span>
-                    </div>}
+                        {order.couponApplied ? <span className="text-green-500 font-semibold">FREE</span> : <span>₹{deliveryFee.toFixed(2)}</span>}
+                    </div>
                 </div>
               </CardContent>
               <CardFooter className="bg-muted/30 p-6 flex justify-end items-center">

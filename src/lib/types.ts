@@ -65,6 +65,7 @@ export type Order = {
   status: 'pending' | 'accepted' | 'rejected' | 'out for delivery' | 'delivered' | 'pending payment' | 'refunded';
   items: OrderItem[];
   total: number;
+  platformFee?: number;
   deliveryLocation: string;
   deliveryTimeSlot?: string;
   orderTime: Date;
