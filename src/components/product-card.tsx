@@ -1,12 +1,13 @@
 'use client';
 
 import Image from 'next/image';
-import { Plus } from 'lucide-react';
+import { Plus, Layers } from 'lucide-react';
 import type { Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Badge } from './ui/badge';
 import { useCartAnimation } from '@/context/cart-animation-context';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ProductCardProps = {
   product: Product;
@@ -59,7 +60,20 @@ export default function ProductCard({ product }: ProductCardProps) {
       )}
       
       { product.variants && product.variants.length > 0 && !isSoldOut && (
-        <Badge variant="default" className="absolute top-2 left-2">Multiple Options</Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="absolute bottom-2 left-2">
+                <div className="flex items-center justify-center h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm border border-white/10">
+                    <Layers className="h-4 w-4 text-white" />
+                </div>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Multiple options available</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
 
       {isSoldOut && (
