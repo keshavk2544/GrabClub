@@ -136,10 +136,11 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    if (user && !form.getValues('receiverName')) {
-        form.setValue('receiverName', user.displayName || '');
+    // Pre-fill the receiver's name only if the user is loaded and the field hasn't been manually edited.
+    if (user && !form.formState.dirtyFields.receiverName) {
+      form.setValue('receiverName', user.displayName || '', { shouldValidate: true });
     }
-  }, [user, form]);
+  }, [user, form.setValue, form.formState]);
 
   useEffect(() => {
     if (!isUserLoading && !user) router.replace('/login');
