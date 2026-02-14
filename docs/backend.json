@@ -92,6 +92,10 @@
         "paymentDetails": {
           "type": "string",
           "description": "UPI ID or bank account details for payments."
+        },
+        "deliveryCharge": {
+          "type": "number",
+          "description": "The delivery fee charged by the vendor. Overrides the default fee."
         }
       },
       "required": [

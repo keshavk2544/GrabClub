@@ -30,6 +30,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -57,6 +58,7 @@ const vendorFormSchema = z.object({
   password: z.string().min(1, { message: 'Password cannot be empty.' }),
   imageSrc: z.string().min(1, { message: "An image is required." }),
   deliveryType: z.enum(['grabclub', 'self']),
+  deliveryCharge: z.coerce.number().min(0, { message: "Delivery charge cannot be negative." }).optional(),
 });
 
 const addVendorFormSchema = vendorFormSchema;
@@ -104,6 +106,7 @@ export default function AdminVendorsTab() {
       password: '',
       imageSrc: '',
       deliveryType: 'grabclub',
+      deliveryCharge: 50,
     },
   });
 
@@ -161,6 +164,7 @@ export default function AdminVendorsTab() {
       password: vendor.password || '',
       imageSrc: vendor.image.src,
       deliveryType: vendor.deliveryType || 'grabclub',
+      deliveryCharge: vendor.deliveryCharge,
     });
     setImagePreview(vendor.image.src);
     setShowPassword(false);
@@ -205,6 +209,7 @@ export default function AdminVendorsTab() {
         userId: values.userId,
         password: values.password,
         deliveryType: values.deliveryType,
+        deliveryCharge: values.deliveryCharge,
         image: {
             ...editingVendor.image,
             src: values.imageSrc,
@@ -231,6 +236,7 @@ export default function AdminVendorsTab() {
       category: 'food', // Hardcoded for now
       status: 'active',
       deliveryType: values.deliveryType,
+      deliveryCharge: values.deliveryCharge,
       image: {
         src: values.imageSrc,
         width: 400,
@@ -380,6 +386,16 @@ export default function AdminVendorsTab() {
                   <FormMessage />
                 </FormItem>
               )} />
+              
+              <FormField control={editForm.control} name="deliveryCharge" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Charge (₹)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="e.g., 50.00" {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
 
               <div className="space-y-2">
                   <FormLabel>Vendor Image</FormLabel>
@@ -435,6 +451,16 @@ export default function AdminVendorsTab() {
                         <FormLabel className="font-normal">Self Delivery</FormLabel>
                       </FormItem>
                     </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              
+               <FormField control={addForm.control} name="deliveryCharge" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Delivery Charge (₹)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="e.g., 50.00" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

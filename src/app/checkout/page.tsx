@@ -146,7 +146,7 @@ export default function CheckoutPage() {
   }, [user, isUserLoading, cartItems, router]);
 
   const subtotal = getCartTotal();
-  const deliveryFee = discountApplied ? 0 : 50.00;
+  const deliveryFee = discountApplied ? 0 : (vendor?.deliveryCharge ?? 50.00);
   const total = subtotal + deliveryFee;
 
   const showLocationDropdown = vendor && (vendor.deliveryLocations && vendor.deliveryLocations.length > 0);

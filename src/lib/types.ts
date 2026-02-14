@@ -28,6 +28,7 @@ export type Vendor = {
   deliveryTimes?: string[];
   status: 'active' | 'inactive';
   deliveryType: 'grabclub' | 'self';
+  deliveryCharge?: number;
 };
 
 export type Product = {
@@ -159,5 +160,3 @@ export type Coupon = {
   usageLimit: number;
   timesUsed: number;
 };
-
-    
