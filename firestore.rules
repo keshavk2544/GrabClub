@@ -113,8 +113,8 @@ service cloud.firestore {
     }
     
     match /settings/{settingId} {
-      // NOTE: Only authenticated users can read settings. Write should be admin-only in production.
-      allow read: if request.auth != null;
+      // NOTE: Publicly readable as it contains global app settings like platform fees. Write should be admin-only in production.
+      allow read: if true;
       allow write: if true; // Permissive for prototyping
     }
   }
