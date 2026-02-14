@@ -71,7 +71,7 @@ export default function CheckoutPage() {
   const vendorRef = useMemoFirebase(() => vendorIdInCart ? doc(firestore, 'vendors', vendorIdInCart) : null, [vendorIdInCart, firestore]);
   const { data: vendor, isLoading: isVendorLoading, error: vendorError } = useDoc<Vendor>(vendorRef);
 
-  const platformSettingsRef = useMemoFirebase(() => (firestore && user) ? doc(firestore, 'settings', 'platform') : null, [firestore, user]);
+  const platformSettingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'platform') : null, [firestore]);
   const { data: platformSettings, isLoading: settingsLoading } = useDoc<PlatformSettings>(platformSettingsRef);
 
   const [isStoreOpen, setIsStoreOpen] = useState(true);
