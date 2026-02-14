@@ -78,7 +78,16 @@ export default function SweetsOrdersTab() {
                 <div key={order.id} className="p-4 border rounded-lg bg-card shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                        <p className="font-bold">{order.receiverName || order.customerName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold">{order.receiverName || order.customerName}</p>
+                          {order.customerPhone && (
+                              <Button asChild size="icon" variant="ghost" className="h-6 w-6">
+                                  <a href={`tel:${order.customerPhone}`}>
+                                      <Phone className="h-4 w-4 text-muted-foreground" />
+                                  </a>
+                              </Button>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">{order.id}</p>
                         <p className="text-sm text-muted-foreground">{order.deliveryLocation}</p>
                         {order.deliveryTimeSlot && <p className="text-sm font-medium text-primary">{order.deliveryTimeSlot}</p>}
@@ -98,11 +107,6 @@ export default function SweetsOrdersTab() {
                   <div className="flex justify-between items-center">
                     <p className="font-bold text-lg">Total: ₹{order.total.toFixed(2)}</p>
                     <div className="flex gap-2">
-                       <Button asChild size="sm" variant="outline" disabled={!order.customerPhone}>
-                            <a href={order.customerPhone ? `tel:${order.customerPhone}` : undefined}>
-                                <Phone className="mr-1 h-4 w-4"/> Call
-                            </a>
-                        </Button>
                       <Button size="sm" variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20" onClick={() => handleUpdateStatus(order.id, 'rejected')}><X className="mr-1 h-4 w-4"/> Reject</Button>
                       <Button size="sm" className="bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20" onClick={() => handleUpdateStatus(order.id, 'accepted')}><Check className="mr-1 h-4 w-4"/> Accept</Button>
                     </div>
