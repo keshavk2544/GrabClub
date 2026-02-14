@@ -52,9 +52,16 @@ export default function AdminSettingsTab() {
     const sortedComplaints = useMemo(() => {
         if (!complaints) return [];
         return [...complaints].sort((a, b) => {
-            const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any);
-            const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any);
-            return dateB.getTime() - dateA.getTime();
+            const dateA = a.createdAt ? ((a.createdAt as any).toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any)) : null;
+            const dateB = b.createdAt ? ((b.createdAt as any).toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any)) : null;
+
+            const timeA = dateA ? dateA.getTime() : 0;
+            const timeB = dateB ? dateB.getTime() : 0;
+            
+            if (isNaN(timeA)) return 1; // Put invalid dates at the end
+            if (isNaN(timeB)) return -1;
+            
+            return timeB - timeA;
         });
     }, [complaints]);
 
@@ -209,44 +216,46 @@ export default function AdminSettingsTab() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4 overflow-y-auto pr-4">
-                        {sortedComplaints && sortedComplaints.length > 0 ? sortedComplaints.map(complaint => (
-                            <div key={complaint.id} className="p-4 border rounded-lg bg-card shadow-sm">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-bold">{complaint.userName}</p>
-                                        <p className="text-sm text-muted-foreground">{complaint.userEmail}</p>
-                                        <p className="text-sm text-muted-foreground">Order: {complaint.orderCode}</p>
+                        {sortedComplaints && sortedComplaints.length > 0 ? sortedComplaints.map(complaint => {
+                            const complaintDate = complaint.createdAt ? ((complaint.createdAt as any).toDate ? (complaint.createdAt as any).toDate() : new Date(complaint.createdAt as any)) : null;
+                            return (
+                                <div key={complaint.id} className="p-4 border rounded-lg bg-card shadow-sm">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-bold">{complaint.userName}</p>
+                                            <p className="text-sm text-muted-foreground">{complaint.userEmail}</p>
+                                            <p className="text-sm text-muted-foreground">Order: {complaint.orderCode}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <Badge variant={complaint.status === 'open' ? 'destructive' : 'default'} className="capitalize">{complaint.status}</Badge>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                            {complaintDate && !isNaN(complaintDate.getTime())
+                                                ? formatDistanceToNow(complaintDate, { addSuffix: true })
+                                                : 'Date unknown'}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <Badge variant={complaint.status === 'open' ? 'destructive' : 'default'} className="capitalize">{complaint.status}</Badge>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                          {formatDistanceToNow(
-                                            (complaint.createdAt as any)?.toDate ? (complaint.createdAt as any).toDate() : new Date(complaint.createdAt as any), 
-                                            { addSuffix: true }
-                                          )}
-                                        </p>
-                                    </div>
-                                </div>
-                                <Separator className="my-3" />
-                                <p className="text-sm">{complaint.complaint}</p>
-                                
-                                {complaint.adminReply && (
-                                    <div className="mt-3 border-t pt-3">
-                                        <p className="text-xs font-semibold text-primary">Your Reply:</p>
-                                        <p className="text-sm text-muted-foreground">{complaint.adminReply}</p>
-                                    </div>
-                                )}
+                                    <Separator className="my-3" />
+                                    <p className="text-sm">{complaint.complaint}</p>
+                                    
+                                    {complaint.adminReply && (
+                                        <div className="mt-3 border-t pt-3">
+                                            <p className="text-xs font-semibold text-primary">Your Reply:</p>
+                                            <p className="text-sm text-muted-foreground">{complaint.adminReply}</p>
+                                        </div>
+                                    )}
 
-                                {complaint.status === 'open' && (
-                                    <div className="mt-4 flex justify-end gap-2">
-                                        <Button size="sm" variant="outline" onClick={() => handleSendMessageClick(complaint)}>
-                                            {complaint.adminReply ? 'Edit Reply' : 'Send Message'}
-                                        </Button>
-                                        <Button size="sm" onClick={() => handleMarkAsResolved(complaint.id)}>Mark as Resolved</Button>
-                                    </div>
-                                )}
-                            </div>
-                        )) : (
+                                    {complaint.status === 'open' && (
+                                        <div className="mt-4 flex justify-end gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => handleSendMessageClick(complaint)}>
+                                                {complaint.adminReply ? 'Edit Reply' : 'Send Message'}
+                                            </Button>
+                                            <Button size="sm" onClick={() => handleMarkAsResolved(complaint.id)}>Mark as Resolved</Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        }) : (
                             <p className="text-center text-muted-foreground py-8">No complaints found.</p>
                         )}
                     </div>
@@ -279,6 +288,4 @@ export default function AdminSettingsTab() {
             </Dialog>
         </>
     );
-
-    
-
+}
