@@ -74,7 +74,9 @@ export default function VegetableOrdersTab() {
           </CardHeader>
           <CardContent className="space-y-4">
             {pendingOrders.length > 0 ? (
-              pendingOrders.map(order => (
+              pendingOrders.map(order => {
+                const subtotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+                return (
                 <div key={order.id} className="p-4 border rounded-lg bg-card shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
@@ -105,14 +107,14 @@ export default function VegetableOrdersTab() {
                   </div>
                   <Separator className="my-3" />
                   <div className="flex justify-between items-center">
-                    <p className="font-bold text-lg">Total: ₹{order.total.toFixed(2)}</p>
+                    <p className="font-bold text-lg">Total: ₹{subtotal.toFixed(2)}</p>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/20" onClick={() => handleUpdateStatus(order.id, 'rejected')}><X className="mr-1 h-4 w-4"/> Reject</Button>
                       <Button size="sm" className="bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/20" onClick={() => handleUpdateStatus(order.id, 'accepted')}><Check className="mr-1 h-4 w-4"/> Accept</Button>
                     </div>
                   </div>
                 </div>
-              ))
+              )})
             ) : (
               <p className="text-muted-foreground text-center py-8">No new orders.</p>
             )}
