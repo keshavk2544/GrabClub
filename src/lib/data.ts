@@ -117,10 +117,10 @@ export const categories: Category[] = [
 ];
 
 export const vendors: Vendor[] = [
-  { id: 'pizzaplace', name: 'Pizza Place', description: 'Authentic Italian pizzas fired to perfection.', image: getImage('vendor-pizza-place'), category: 'food', status: 'active', openingTime: '12:00', closingTime: '23:00', workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], userId: 'pizzaplace@123', password: 'password', deliveryType: 'grabclub' },
-  { id: 'burgerbarn', name: 'Burger Barn', description: 'Gourmet burgers, shakes, and crispy fries.', image: getImage('vendor-burger-barn'), category: 'food', status: 'active', openingTime: '11:00', closingTime: '22:00', workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], userId: 'burgerbarn@123', password: 'password', deliveryType: 'grabclub' },
-  { id: 'sushicentral', name: 'Sushi Central', description: 'The freshest, most delicious sushi in town.', image: getImage('vendor-sushi-central'), category: 'food', status: 'inactive', userId: 'sushi@123', password: 'password', deliveryType: 'grabclub' },
-  { id: 'healthybites', name: 'Healthy Bites', description: 'Nutritious salads, bowls, and smoothies.', image: getImage('vendor-healthy-bites'), category: 'food', status: 'active', openingTime: '09:00', closingTime: '20:00', workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], userId: 'healthybites@123', password: 'password', deliveryType: 'self' },
+  { id: 'pizzaplace', name: 'Pizza Place', description: 'Authentic Italian pizzas fired to perfection.', image: getImage('vendor-pizza-place'), category: 'food', status: 'active', openingTime: '12:00', closingTime: '23:00', workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], userId: 'pizzaplace@123', password: 'password', deliveryType: 'grabclub', deliveryCharge: 50 },
+  { id: 'burgerbarn', name: 'Burger Barn', description: 'Gourmet burgers, shakes, and crispy fries.', image: getImage('vendor-burger-barn'), category: 'food', status: 'active', openingTime: '11:00', closingTime: '22:00', workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"], userId: 'burgerbarn@123', password: 'password', deliveryType: 'grabclub', deliveryCharge: 50 },
+  { id: 'sushicentral', name: 'Sushi Central', description: 'The freshest, most delicious sushi in town.', image: getImage('vendor-sushi-central'), category: 'food', status: 'inactive', userId: 'sushi@123', password: 'password', deliveryType: 'grabclub', deliveryCharge: 50 },
+  { id: 'healthybites', name: 'Healthy Bites', description: 'Nutritious salads, bowls, and smoothies.', image: getImage('vendor-healthy-bites'), category: 'food', status: 'active', openingTime: '09:00', closingTime: '20:00', workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], userId: 'healthybites@123', password: 'password', deliveryType: 'self', deliveryCharge: 50 },
   { 
     id: 'general-store', 
     name: 'General Store', 
@@ -135,7 +135,8 @@ export const vendors: Vendor[] = [
     status: 'active',
     userId: 'grocery@123',
     password: 'password',
-    deliveryType: 'grabclub'
+    deliveryType: 'grabclub',
+    deliveryCharge: 50,
   },
   { 
     id: 'fresh-fruits', 
@@ -151,7 +152,8 @@ export const vendors: Vendor[] = [
     status: 'active',
     userId: 'fruits@123',
     password: 'password',
-    deliveryType: 'grabclub'
+    deliveryType: 'grabclub',
+    deliveryCharge: 50,
   },
   { 
     id: 'fresh-vegetables', 
@@ -167,7 +169,8 @@ export const vendors: Vendor[] = [
     status: 'active',
     userId: 'vegetable@123',
     password: 'password',
-    deliveryType: 'grabclub'
+    deliveryType: 'grabclub',
+    deliveryCharge: 50,
   },
   {
     id: 'sweet-treats-bakery',
@@ -183,7 +186,8 @@ export const vendors: Vendor[] = [
     status: 'active',
     userId: 'bakery@123',
     password: 'password',
-    deliveryType: 'self'
+    deliveryType: 'self',
+    deliveryCharge: 50,
   },
   {
     id: 'sweets-shop',
@@ -199,7 +203,8 @@ export const vendors: Vendor[] = [
     status: 'active',
     userId: 'sweets@123',
     password: 'password',
-    deliveryType: 'grabclub'
+    deliveryType: 'grabclub',
+    deliveryCharge: 50,
   },
   { 
     id: 'pharmaplus', 
@@ -215,7 +220,8 @@ export const vendors: Vendor[] = [
     deliveryTimes: ["10:00 AM – 1:00 PM", "5:00 PM – 9:00 PM"],
     userId: 'pharma@123',
     password: 'password',
-    deliveryType: 'self'
+    deliveryType: 'self',
+    deliveryCharge: 50,
   },
   { 
     id: 'cyber-cafe-services', 
@@ -231,7 +237,8 @@ export const vendors: Vendor[] = [
     deliveryTimes: ["10:00 AM – 7:00 PM"],
     userId: 'cyber@123',
     password: 'password',
-    deliveryType: 'self'
+    deliveryType: 'self',
+    deliveryCharge: 50,
   },
   {
     id: "vendor-1718012345",
@@ -253,7 +260,8 @@ export const vendors: Vendor[] = [
     workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     deliveryLocations: [],
     deliveryTimes: [],
-    deliveryType: "grabclub"
+    deliveryType: "grabclub",
+    deliveryCharge: 50,
   }
 ];
 

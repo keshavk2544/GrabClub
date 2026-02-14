@@ -92,23 +92,36 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           // Data migration check for existing vendors
           const allVendorsSnapshot = await getDocs(vendorsCollection);
           const batch = writeBatch(firestore);
-          let needsUpdate = false;
+          let needsMigration = false;
           
           allVendorsSnapshot.forEach(vendorDoc => {
             const vendorData = vendorDoc.data() as Vendor;
+            const vendorRef = doc(firestore, 'vendors', vendorDoc.id);
+            let updateNeeded = false;
+            const updatePayload: Partial<Vendor> = {};
+
             if (vendorData.deliveryType === undefined) {
-              const seedVendor = initialVendors.find(v => v.id === vendorDoc.id);
-              if (seedVendor && seedVendor.deliveryType) {
-                const vendorRef = doc(firestore, 'vendors', vendorDoc.id);
-                batch.update(vendorRef, { deliveryType: seedVendor.deliveryType });
-                needsUpdate = true;
-              }
+                const seedVendor = initialVendors.find(v => v.id === vendorDoc.id);
+                if (seedVendor?.deliveryType) {
+                    updatePayload.deliveryType = seedVendor.deliveryType;
+                    updateNeeded = true;
+                }
+            }
+            
+            if (vendorData.deliveryCharge === undefined) {
+                updatePayload.deliveryCharge = 50; // Default charge
+                updateNeeded = true;
+            }
+
+            if (updateNeeded) {
+                batch.update(vendorRef, updatePayload);
+                needsMigration = true;
             }
           });
 
-          if (needsUpdate) {
+          if (needsMigration) {
             await batch.commit();
-            console.log("Vendor `deliveryType` migration complete.");
+            console.log("Vendor data migration for delivery options complete.");
             toast({
               title: "System Update",
               description: "Vendor data has been successfully updated.",
