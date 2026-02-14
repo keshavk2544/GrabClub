@@ -57,7 +57,7 @@ export default function CyberOrdersTab() {
                     <div>
                         <p className="font-bold">{job.userName}</p>
                         <p className="text-sm text-muted-foreground">{job.phone}</p>
-                        <p className="text-sm text-muted-foreground">{formatDistanceToNow(new Date(job.createdAt as any), { addSuffix: true })}</p>
+                        <p className="text-sm text-muted-foreground">{formatDistanceToNow((job.createdAt as any)?.toDate ? (job.createdAt as any).toDate() : new Date(job.createdAt as any), { addSuffix: true })}</p>
                     </div>
                     <Badge variant="default" className="bg-blue-600 text-white capitalize">{job.status}</Badge>
                   </div>
