@@ -35,6 +35,7 @@ export default function BakerySettingsTab() {
     const [deliveryLocations, setDeliveryLocations] = useState<string[]>([]);
     const [deliveryTimes, setDeliveryTimes] = useState<string[]>([]);
     const [deliveryType, setDeliveryType] = useState<'grabclub' | 'self'>('self');
+    const [deliveryCharge, setDeliveryCharge] = useState(50);
 
     useEffect(() => {
         const id = sessionStorage.getItem('vendorId');
@@ -49,6 +50,7 @@ export default function BakerySettingsTab() {
             setDeliveryLocations(vendor.deliveryLocations || []);
             setDeliveryTimes(vendor.deliveryTimes || []);
             setDeliveryType(vendor.deliveryType || 'self');
+            setDeliveryCharge(vendor.deliveryCharge ?? 50);
         }
     }, [vendor]);
 
@@ -61,6 +63,7 @@ export default function BakerySettingsTab() {
             deliveryLocations: deliveryLocations.filter(l => l && l.trim() !== ''),
             deliveryTimes: deliveryTimes.filter(t => t && t.trim() !== ''),
             deliveryType,
+            deliveryCharge,
         };
         
         const vendorDocRef = doc(firestore, 'vendors', vendorId);
@@ -152,6 +155,12 @@ export default function BakerySettingsTab() {
                                 <Label htmlFor="grabclub-delivery">Scheduled Delivery (GrabClub)</Label>
                             </div>
                         </RadioGroup>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="delivery-charge">Delivery Charge (₹)</Label>
+                        <Input id="delivery-charge" type="number" value={deliveryCharge} onChange={e => setDeliveryCharge(Number(e.target.value))} placeholder="e.g., 50"/>
+                        <p className="text-xs text-muted-foreground">Set to 0 for free delivery.</p>
                     </div>
 
                     <div>
