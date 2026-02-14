@@ -113,10 +113,12 @@ service cloud.firestore {
     }
     
     match /settings/{settingId} {
-      // The platform fee is a public setting. Anyone can read it.
-      // Write should be admin-only in production.
-      allow read: if true;
-      allow write: if true; // Permissive for prototyping
+      // Allow public read access for anyone. This is for app-wide settings
+      // like the platform fee, which needs to be available on load.
+      allow get, list: if true;
+      // Writes should be restricted. Only authenticated users can write for now.
+      // In production, this should be restricted to admins.
+      allow write: if request.auth != null;
     }
   }
 }
