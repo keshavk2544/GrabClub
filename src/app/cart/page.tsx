@@ -6,12 +6,12 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import BlockedUserGuard from '@/components/blocked-user-guard';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import type { Coupon } from '@/lib/types';
-import { useFirestore } from '@/firebase';
+import type { Coupon, Vendor } from '@/lib/types';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 
 const ConfettiExplosion = () => {
@@ -49,6 +49,10 @@ export default function CartPage() {
   const [discountApplied, setDiscountApplied] = useState(false);
   const [shake, setShake] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+
+  const vendorIdInCart = useMemo(() => (cartItems.length > 0 ? cartItems[0].product.vendorId : null), [cartItems]);
+  const vendorRef = useMemoFirebase(() => (vendorIdInCart && firestore ? doc(firestore, 'vendors', vendorIdInCart) : null), [firestore, vendorIdInCart]);
+  const { data: vendor } = useDoc<Vendor>(vendorRef);
 
   useEffect(() => {
     const savedDiscount = window.localStorage.getItem('grabclub-discount') === 'true';
@@ -127,7 +131,8 @@ export default function CartPage() {
     }
   };
 
-  const deliveryFee = discountApplied ? 0 : 50.00;
+  const baseDeliveryFee = vendor?.deliveryCharge ?? 50.00;
+  const deliveryFee = discountApplied ? 0 : baseDeliveryFee;
   const total = getCartTotal() + deliveryFee;
 
   const pageContent = (
@@ -203,7 +208,7 @@ export default function CartPage() {
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Delivery Fee</span>
                         {discountApplied ? (
-                            <span className="text-green-500 font-semibold"><s>₹50.00</s> FREE</span>
+                            <span className="text-green-500 font-semibold"><s>₹{baseDeliveryFee.toFixed(2)}</s> FREE</span>
                         ) : (
                             <span>₹{deliveryFee.toFixed(2)}</span>
                         )}
