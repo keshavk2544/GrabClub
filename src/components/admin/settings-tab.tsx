@@ -23,6 +23,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Textarea } from '../ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Loader2, Trash2 } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -157,7 +158,7 @@ export default function AdminSettingsTab() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-2">
-                            <FormLabel htmlFor="platform-fee">Platform Fee (₹)</FormLabel>
+                            <Label htmlFor="platform-fee">Platform Fee (₹)</Label>
                             <div className="flex items-center gap-2">
                                 <Input
                                     id="platform-fee"
@@ -183,8 +184,7 @@ export default function AdminSettingsTab() {
                         <div>
                             <h3 className="text-base font-semibold mb-2">Complaints Panel</h3>
                             <Button variant="secondary" className="w-full" onClick={() => setIsComplaintsDialogOpen(true)}>
-                                {complaintsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                View Complaints
+                                {complaintsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'View Complaints'}
                             </Button>
                         </div>
                     </CardContent>
@@ -315,4 +315,5 @@ export default function AdminSettingsTab() {
             </Dialog>
         </>
     );
-}
+
+    
