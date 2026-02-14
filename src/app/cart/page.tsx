@@ -10,7 +10,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import type { Coupon, Vendor } from '@/lib/types';
+import type { Coupon, Vendor, PlatformSettings } from '@/lib/types';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 
@@ -53,6 +53,9 @@ export default function CartPage() {
   const vendorIdInCart = useMemo(() => (cartItems.length > 0 ? cartItems[0].product.vendorId : null), [cartItems]);
   const vendorRef = useMemoFirebase(() => (vendorIdInCart && firestore ? doc(firestore, 'vendors', vendorIdInCart) : null), [firestore, vendorIdInCart]);
   const { data: vendor } = useDoc<Vendor>(vendorRef);
+
+  const platformSettingsRef = useMemoFirebase(() => firestore ? doc(firestore, 'settings', 'platform') : null, [firestore]);
+  const { data: platformSettings } = useDoc<PlatformSettings>(platformSettingsRef);
 
   useEffect(() => {
     const savedDiscount = window.localStorage.getItem('grabclub-discount') === 'true';
@@ -133,7 +136,8 @@ export default function CartPage() {
 
   const baseDeliveryFee = vendor?.deliveryCharge ?? 50.00;
   const deliveryFee = discountApplied ? 0 : baseDeliveryFee;
-  const total = getCartTotal() + deliveryFee;
+  const platformFee = platformSettings?.platformFee ?? 0;
+  const total = getCartTotal() + deliveryFee + platformFee;
 
   const pageContent = (
     <>
@@ -213,6 +217,12 @@ export default function CartPage() {
                             <span>₹{deliveryFee.toFixed(2)}</span>
                         )}
                     </div>
+                    {platformFee > 0 && (
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Platform Fee</span>
+                            <span>₹{platformFee.toFixed(2)}</span>
+                        </div>
+                    )}
                      <div className="flex justify-between text-base font-bold pt-4 border-t border-border/20 mt-4">
                         <span>Total</span>
                         <span>₹{total.toFixed(2)}</span>
