@@ -55,26 +55,25 @@ export default function ProductCard({ product }: ProductCardProps) {
         </div>
       </div>
       
-      {!isSoldOut && product.subCategory && (
-        <Badge variant="secondary" className="absolute top-2 right-2 capitalize">{product.subCategory}</Badge>
-      )}
-      
-      { product.variants && product.variants.length > 0 && !isSoldOut && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="absolute bottom-2 left-2">
-                <div className="flex items-center justify-center h-7 w-7 rounded-full bg-black/50 backdrop-blur-sm border border-white/10">
-                    <Layers className="h-4 w-4 text-white" />
+      <div className="absolute top-2 right-2 flex items-center gap-1.5">
+        {product.variants && product.variants.length > 0 && !isSoldOut && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-black/50 backdrop-blur-sm border border-white/10">
+                    <Layers className="h-3.5 w-3.5 text-white" />
                 </div>
-              </div>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Multiple options available</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Multiple options available</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        {!isSoldOut && product.subCategory && (
+          <Badge variant="secondary" className="capitalize">{product.subCategory}</Badge>
+        )}
+      </div>
 
       {isSoldOut && (
         <div className="absolute inset-0 bg-background/70 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl">
