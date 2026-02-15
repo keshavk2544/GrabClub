@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import Header from './layout/header';
+import FloatingNav from './layout/floating-nav';
+import { Toaster } from '@/components/ui/toaster';
+import { CartAnimationProvider } from '@/context/cart-animation-context';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,11 +21,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        {/* The Header and FloatingNav were temporarily removed to fix the 404 error. */}
-        {/* I will restore them in the next step. */}
-        <div className="relative flex min-h-screen flex-col bg-background">
-          <main className="flex-1">{children}</main>
-        </div>
+        <CartAnimationProvider>
+          <div className="relative flex min-h-screen flex-col bg-background">
+            <Header />
+            <main className="flex-1">{children}</main>
+            <FloatingNav />
+            <Toaster />
+          </div>
+        </CartAnimationProvider>
       </body>
     </html>
   );
