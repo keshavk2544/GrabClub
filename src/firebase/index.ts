@@ -1,27 +1,19 @@
-// This is a placeholder file with mock implementations to prevent compilation errors.
-// The real Firebase implementation needs to be restored.
+// This file re-exports the core Firebase hooks and utilities.
+// The original content was lost and has been reconstructed.
 
-import { useMemo } from 'react';
+export { useUser } from './auth/use-user';
+export { useCollection } from './firestore/use-collection';
+export { useDocument } from './firestore/use-doc';
+export { firebaseConfig } from './config';
 
-// Mock implementation for useFirestore
+// Placeholder for useFirestore, assuming it might have been here.
 export const useFirestore = () => {
-    console.warn("Firebase (useFirestore) is not fully configured. Using mock data.");
-    return null; // Returning null as the original might do before initialization
+    console.warn("Firebase (useFirestore) is a placeholder and not fully configured.");
+    return null;
 }
 
-// Mock implementation for useCollection
-export const useCollection = (query: any) => {
-    if (!query) return { data: [], loading: true, error: null };
-    
-    console.warn("Firebase (useCollection) is not fully configured. Using mock empty data.");
-    return { data: [], loading: false, error: null };
-}
-
-// Mock implementation for useMemoFirebase
-// This is a simplified mock. The original might have more complex memoization logic.
+// Placeholder for useMemoFirebase, assuming it might have been here.
+import { useMemo } from 'react';
 export const useMemoFirebase = (callback: () => any, deps: any[]) => {
     return useMemo(callback, deps);
 }
-
-// Re-exporting useUser from its mock file
-export { useUser } from './auth/use-user';
