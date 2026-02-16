@@ -136,7 +136,7 @@ export default function ActiveOrderTracker() {
     
     checkAndCleanupOldOrders(); // Initial check
 
-    return () => clearInterval(intervalId);
+    return () => clearInterval(interval);
   }, [checkAndCleanupOldOrders]);
 
   const allTrackedOrders = useMemo(() => {
