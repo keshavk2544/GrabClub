@@ -14,11 +14,15 @@ import {
   writeBatch,
   onSnapshot,
   getDocs,
+  getDoc,
   limit,
+  setDoc,
 } from 'firebase/firestore';
 import { products as initialProducts, vendors as initialVendors } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import GrabClubLoading from '@/components/layout/loading';
+
+const DB_VERSION = 2; // Increment this to force a re-seed if initial data changes.
 
 interface ProductsContextType {
   products: Product[];
@@ -39,34 +43,38 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
 
   const seedDatabase = useCallback(async () => {
     if (!firestore) return;
-    console.log("Seeding database with initial data...");
+    console.log(`Seeding database with initial data (v${DB_VERSION})...`);
     try {
-      // Seed vendors
+      const configRef = doc(firestore, '_internal', 'version');
+      
+      // Use merge:true to avoid overwriting unrelated fields if any
       const vendorsBatch = writeBatch(firestore);
       initialVendors.forEach(vendor => {
         const vendorRef = doc(firestore, 'vendors', vendor.id);
-        vendorsBatch.set(vendorRef, vendor);
+        vendorsBatch.set(vendorRef, vendor, { merge: true }); // Safer write
       });
       await vendorsBatch.commit();
-
-      // Seed products
+      
       const productsBatch = writeBatch(firestore);
       initialProducts.forEach(product => {
         const productRef = doc(firestore, `vendors/${product.vendorId}/products`, product.id);
-        productsBatch.set(productRef, product);
+        productsBatch.set(productRef, product, { merge: true }); // Safer write
       });
       await productsBatch.commit();
       
+      // After successful seeding, set the version
+      await setDoc(configRef, { version: DB_VERSION });
+      
       toast({
         title: "Welcome!",
-        description: "Sample vendors and products have been added to your app.",
+        description: "Sample vendors and products have been added.",
         variant: 'success',
       });
     } catch (error) {
       console.error("Database seeding failed:", error);
       toast({
         title: "Seeding Failed",
-        description: "Could not add sample data. Please check the console.",
+        description: "Could not add sample data.",
         variant: 'destructive',
       });
     }
@@ -83,50 +91,12 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
 
     const initialize = async () => {
       try {
-        const vendorsCollection = collection(firestore, 'vendors');
-        const snapshot = await getDocs(query(vendorsCollection, limit(1)));
+        // This is a much more robust way to check if seeding is needed.
+        const configRef = doc(firestore, '_internal', 'version');
+        const configSnap = await getDoc(configRef);
         
-        if (snapshot.empty) {
+        if (!configSnap.exists() || configSnap.data().version < DB_VERSION) {
           await seedDatabase();
-        } else {
-          // Data migration check for existing vendors
-          const allVendorsSnapshot = await getDocs(vendorsCollection);
-          const batch = writeBatch(firestore);
-          let needsMigration = false;
-          
-          allVendorsSnapshot.forEach(vendorDoc => {
-            const vendorData = vendorDoc.data() as Vendor;
-            const vendorRef = doc(firestore, 'vendors', vendorDoc.id);
-            let updateNeeded = false;
-            const updatePayload: Partial<Vendor> = {};
-
-            if (vendorData.deliveryType === undefined) {
-                const seedVendor = initialVendors.find(v => v.id === vendorDoc.id);
-                if (seedVendor?.deliveryType) {
-                    updatePayload.deliveryType = seedVendor.deliveryType;
-                    updateNeeded = true;
-                }
-            }
-            
-            if (vendorData.deliveryCharge === undefined) {
-                updatePayload.deliveryCharge = 50; // Default charge
-                updateNeeded = true;
-            }
-
-            if (updateNeeded) {
-                batch.update(vendorRef, updatePayload);
-                needsMigration = true;
-            }
-          });
-
-          if (needsMigration) {
-            await batch.commit();
-            console.log("Vendor data migration for delivery options complete.");
-            toast({
-              title: "System Update",
-              description: "Vendor data has been successfully updated.",
-            });
-          }
         }
         
         const q = query(collectionGroup(firestore, 'products'));
