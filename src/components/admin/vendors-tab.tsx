@@ -76,6 +76,32 @@ const categoryColorClasses: { [key: string]: { trigger: string, item: string } }
 };
 
 
+/**
+ * Recursively removes properties with `undefined` values from an object.
+ * Firestore does not support `undefined` and will reject writes containing it.
+ */
+function removeUndefinedDeep(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedDeep).filter(v => v !== undefined);
+  } else if (typeof obj === 'object' && obj !== null) {
+    const newObj: { [key: string]: any } = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+        if (value !== undefined) {
+          const processedValue = removeUndefinedDeep(value);
+          if (processedValue !== undefined) {
+            newObj[key] = processedValue;
+          }
+        }
+      }
+    }
+    return newObj;
+  }
+  return obj;
+}
+
+
 export default function AdminVendorsTab() {
   const firestore = useFirestore();
   const vendorsQuery = useMemoFirebase(() =>
@@ -220,7 +246,8 @@ export default function AdminVendorsTab() {
     if (!editingVendor || !firestore) return;
 
     const vendorRef = doc(firestore, 'vendors', editingVendor.id);
-    await updateDoc(vendorRef, { 
+    
+    const updatedData = {
         name: values.name,
         description: values.description,
         userId: values.userId,
@@ -228,11 +255,18 @@ export default function AdminVendorsTab() {
         deliveryType: values.deliveryType,
         deliveryCharge: values.deliveryCharge,
         image: {
-            ...editingVendor.image,
-            src: values.imageSrc,
-            alt: values.name,
+            src: values.imageSrc || '',
+            alt: values.name || 'Vendor image',
+            width: editingVendor.image.width || 400,
+            height: editingVendor.image.height || 300,
+            hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : (editingVendor.image.hint || 'vendor'),
         }
-    });
+    };
+    
+    // Clean the object of any undefined values before sending to Firestore
+    const cleanedUpdateData = removeUndefinedDeep(updatedData);
+
+    await updateDoc(vendorRef, cleanedUpdateData);
 
     toast({
       title: 'Vendor Saved',
@@ -245,21 +279,21 @@ export default function AdminVendorsTab() {
   const onAddSubmit = async (values: z.infer<typeof addVendorFormSchema>) => {
     if (!firestore || !addingToCategory) return;
 
-    const newVendorData: Omit<Vendor, 'id'> = {
+    const vendorData = {
       name: values.name,
       description: values.description,
       userId: values.userId,
       password: values.password,
       category: addingToCategory.id,
-      status: 'active',
+      status: 'active' as const,
       deliveryType: values.deliveryType,
       deliveryCharge: values.deliveryCharge,
       image: {
-        src: values.imageSrc,
+        src: values.imageSrc || '',
         width: 400,
         height: 300,
-        alt: values.name,
-        hint: values.name.toLowerCase().split(' ').slice(0, 2).join(' '),
+        alt: values.name || 'Vendor image',
+        hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'vendor',
       },
       openingTime: '09:00',
       closingTime: '22:00',
@@ -268,7 +302,9 @@ export default function AdminVendorsTab() {
       deliveryTimes: [],
     };
 
-    await addDoc(collection(firestore, 'vendors'), newVendorData);
+    const cleanedVendorData = removeUndefinedDeep(vendorData);
+
+    await addDoc(collection(firestore, 'vendors'), cleanedVendorData);
 
     toast({
       title: 'Vendor Added',
