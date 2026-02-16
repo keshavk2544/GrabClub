@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -140,59 +139,19 @@ export default function PaymentPage() {
             name: "GrabClub",
             description: `Payment for Order #${order.id.split('-').pop()}`,
             order_id: razorpayOrder.id,
-            handler: async function (paymentResponse: any) {
-                if (!orderRef || !order) return;
-
-                // Verify Razorpay signature on server before updating DB
-                const verifyRes = await fetch('/api/razorpay/verify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        razorpay_order_id: paymentResponse.razorpay_order_id,
-                        razorpay_payment_id: paymentResponse.razorpay_payment_id,
-                        razorpay_signature: paymentResponse.razorpay_signature,
-                    }),
-                });
-
-                if (!verifyRes.ok) {
-                    const errorData = await verifyRes.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'Payment verification failed.');
-                }
-                
-                const newStatus = 'accepted';
-
-                const updateData: Partial<Order> = { status: newStatus };
-                if (!order.verificationCode) {
-                    updateData.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-                }
-
-                await updateDoc(orderRef, updateData);
-                
-                const itemsToDecrement = order.items.map(item => ({ productId: item.productId, quantity: item.quantity }));
-                await decrementInventory(itemsToDecrement);
-                
-                const toastMessage = "Your order has been confirmed and is being prepared.";
-
-                toast({ variant: 'success', title: 'Payment Successful!', description: toastMessage });
-                router.push('/orders');
-            },
+            callback_url: `${window.location.origin}/api/razorpay/verify?order_id=${order.id}`,
+            redirect: true,
             prefill: {
                 name: user?.displayName || '',
                 email: user?.email || '',
                 contact: order.customerPhone,
             },
             theme: { color: "#FE9D15" },
-            modal: {
-                ondismiss: function() {
-                    setIsProcessingPayment(false);
-                    toast({ variant: 'destructive', title: 'Payment Cancelled', description: 'Your order was not paid.' });
-                }
-            }
         };
 
         const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (paymentResponse: any) {
-            toast({ variant: 'destructive', title: 'Payment Failed', description: paymentResponse.error.description || 'Please try again.' });
+        rzp.on('payment.failed', function () {
+            toast({ variant: 'destructive', title: 'Payment Failed', description: 'Please try again or contact support.' });
             setIsProcessingPayment(false);
         });
         rzp.open();
