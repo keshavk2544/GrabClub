@@ -245,37 +245,42 @@ export default function AdminVendorsTab() {
   const onEditSubmit = async (values: z.infer<typeof vendorFormSchema>) => {
     if (!editingVendor || !firestore) return;
 
-    const vendorRef = doc(firestore, 'vendors', editingVendor.id);
-    
-    const updatedData: Record<string, any> = {
-        name: values.name,
-        description: values.description,
-        userId: values.userId,
-        password: values.password,
-        deliveryType: values.deliveryType,
-        image: {
-            src: String(values.imageSrc || ''),
-            alt: String(values.name || 'Vendor image'),
-            width: editingVendor.image.width || 400,
-            height: editingVendor.image.height || 300,
-            hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : (editingVendor.image.hint || 'vendor'),
-        }
+    const updatedData = {
+      name: values.name,
+      description: values.description,
+      userId: values.userId,
+      password: values.password,
+      deliveryType: values.deliveryType,
+      deliveryCharge: values.deliveryCharge,
+      image: {
+          src: String(values.imageSrc || ''),
+          alt: String(values.name || 'Vendor image'),
+          width: editingVendor.image.width || 400,
+          height: editingVendor.image.height || 300,
+          hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : (editingVendor.image.hint || 'vendor'),
+      }
     };
-    
-    if (values.deliveryCharge !== undefined) {
-      updatedData.deliveryCharge = values.deliveryCharge;
-    }
     
     const cleanedUpdateData = removeUndefinedDeep(updatedData);
 
-    await updateDoc(vendorRef, cleanedUpdateData);
+    try {
+      const vendorRef = doc(firestore, 'vendors', editingVendor.id);
+      await updateDoc(vendorRef, cleanedUpdateData);
 
-    toast({
-      title: 'Vendor Saved',
-      description: `${values.name} has been updated.`,
-    });
-    setIsEditDialogOpen(false);
-    setEditingVendor(null);
+      toast({
+        title: 'Vendor Saved',
+        description: `${values.name} has been updated.`,
+      });
+      setIsEditDialogOpen(false);
+      setEditingVendor(null);
+    } catch (error: any) {
+      console.error("Update Vendor Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: `Could not save changes. Firestore error: ${error.message}`,
+      });
+    }
   };
   
   const onAddSubmit = async (values: z.infer<typeof addVendorFormSchema>) => {
@@ -289,7 +294,7 @@ export default function AdminVendorsTab() {
       category: addingToCategory.id,
       status: 'active' as const,
       deliveryType: values.deliveryType,
-      deliveryCharge: values.deliveryCharge ?? 0,
+      deliveryCharge: values.deliveryCharge,
       image: {
         src: String(values.imageSrc || ''),
         width: 400,
@@ -306,16 +311,25 @@ export default function AdminVendorsTab() {
 
     const cleanedVendorData = removeUndefinedDeep(vendorData);
 
-    await addDoc(collection(firestore, 'vendors'), cleanedVendorData);
+    try {
+      await addDoc(collection(firestore, 'vendors'), cleanedVendorData);
 
-    toast({
-      title: 'Vendor Added',
-      description: `${values.name} has been added to ${addingToCategory.name} Services.`,
-    });
-    setIsAddDialogOpen(false);
-    addForm.reset();
-    setImagePreview(null);
-    setAddingToCategory(null);
+      toast({
+        title: 'Vendor Added',
+        description: `${values.name} has been added to ${addingToCategory.name} Services.`,
+      });
+      setIsAddDialogOpen(false);
+      addForm.reset();
+      setImagePreview(null);
+      setAddingToCategory(null);
+    } catch(error: any) {
+      console.error("Add Vendor Error:", error);
+      toast({
+        variant: "destructive",
+        title: "Add Failed",
+        description: `Could not add vendor. Firestore error: ${error.message}`,
+      });
+    }
   };
 
   return (
