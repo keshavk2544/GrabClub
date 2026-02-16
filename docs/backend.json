@@ -73,6 +73,34 @@
           "type": "string",
           "description": "Description of the vendor and their offerings."
         },
+        "image": {
+          "type": "object",
+          "description": "Image object for the vendor.",
+          "properties": {
+            "src": {
+              "type": "string",
+              "format": "uri"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            },
+            "alt": {
+              "type": "string"
+            },
+            "hint": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "src",
+            "width",
+            "height",
+            "alt"
+          ]
+        },
         "address": {
           "type": "string",
           "description": "Physical address of the vendor's shop."
@@ -105,6 +133,7 @@
         "name",
         "shopName",
         "description",
+        "image",
         "address",
         "contactNumber",
         "email",
@@ -137,13 +166,29 @@
           "type": "object",
           "description": "Image object for the product.",
           "properties": {
-            "src": { "type": "string", "format": "uri" },
-            "width": { "type": "number" },
-            "height": { "type": "number" },
-            "alt": { "type": "string" },
-            "hint": { "type": "string" }
+            "src": {
+              "type": "string",
+              "format": "uri"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            },
+            "alt": {
+              "type": "string"
+            },
+            "hint": {
+              "type": "string"
+            }
           },
-          "required": ["src", "width", "height", "alt"]
+          "required": [
+            "src",
+            "width",
+            "height",
+            "alt"
+          ]
         },
         "price": {
           "type": "number",
@@ -162,27 +207,34 @@
           "description": "The unit of measurement for the product quantity (e.g., '1 pc', '500 gm')."
         },
         "subCategory": {
-            "type": "string",
-            "description": "The sub-category of the product (e.g., 'pizza', 'dairy')."
+          "type": "string",
+          "description": "The sub-category of the product (e.g., 'pizza', 'dairy')."
         },
         "emoji": {
-            "type": "string",
-            "description": "An emoji representing the product."
+          "type": "string",
+          "description": "An emoji representing the product."
         },
         "keywords": {
-            "type": "string",
-            "description": "Comma-separated keywords for searching."
+          "type": "string",
+          "description": "Comma-separated keywords for searching."
         },
         "variants": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": { "type": "string" },
-                    "price": { "type": "number" }
-                },
-                "required": ["name", "price"]
-            }
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "price": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "name",
+              "price"
+            ]
+          }
         }
       },
       "required": [
@@ -266,112 +318,318 @@
       "description": "Represents a customer's order from a vendor.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "vendorId": { "type": "string" },
-        "customerName": { "type": "string" },
-        "customerEmail": { "type": "string", "format": "email" },
-        "customerPhone": { "type": "string" },
-        "receiverName": { "type": "string" },
-        "requestId": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "out for delivery", "delivered", "pending payment"] },
+        "id": {
+          "type": "string"
+        },
+        "vendorId": {
+          "type": "string"
+        },
+        "customerName": {
+          "type": "string"
+        },
+        "customerEmail": {
+          "type": "string",
+          "format": "email"
+        },
+        "customerPhone": {
+          "type": "string"
+        },
+        "receiverName": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "accepted",
+            "rejected",
+            "out for delivery",
+            "delivered",
+            "pending payment"
+          ]
+        },
         "items": {
           "type": "array",
-          "items": { "$ref": "#/entities/OrderItem" }
+          "items": {
+            "$ref": "#/entities/OrderItem"
+          }
         },
-        "total": { "type": "number" },
-        "deliveryLocation": { "type": "string" },
-        "deliveryTimeSlot": { "type": "string" },
-        "orderTime": { "type": "string", "format": "date-time" },
-        "verificationCode": { "type": "string" },
-        "deliveryPersonId": { "type": "string" },
-        "rejectionReason": { "type": "string" }
+        "total": {
+          "type": "number"
+        },
+        "deliveryLocation": {
+          "type": "string"
+        },
+        "deliveryTimeSlot": {
+          "type": "string"
+        },
+        "orderTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "verificationCode": {
+          "type": "string"
+        },
+        "deliveryPersonId": {
+          "type": "string"
+        },
+        "rejectionReason": {
+          "type": "string"
+        }
       },
-      "required": ["id", "vendorId", "customerName", "status", "items", "total", "deliveryLocation", "orderTime"]
+      "required": [
+        "id",
+        "vendorId",
+        "customerName",
+        "status",
+        "items",
+        "total",
+        "deliveryLocation",
+        "orderTime"
+      ]
     },
     "OrderItem": {
-        "title": "Order Item",
-        "type": "object",
-        "properties": {
-            "productId": { "type": "string" },
-            "name": { "type": "string" },
-            "quantity": { "type": "number" },
-            "price": { "type": "number" }
+      "title": "Order Item",
+      "type": "object",
+      "properties": {
+        "productId": {
+          "type": "string"
         },
-        "required": ["name", "quantity", "price"]
+        "name": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "price": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "quantity",
+        "price"
+      ]
     },
     "MedicineRequest": {
       "title": "Medicine Request",
       "description": "Represents a user's request for medicines, either via prescription upload or text.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "userEmail": { "type": "string", "format": "email" },
-        "phone": { "type": "string" },
-        "submissionType": { "type": "string", "enum": ["upload", "manual"] },
-        "prescriptionImage": { "type": "string", "format": "uri" },
-        "medicinesText": { "type": "string" },
-        "deliveryLocation": { "type": "string" },
-        "deliveryTimeSlot": { "type": "string" },
-        "receiverName": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending-review", "processed", "rejected"] },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "orderId": { "type": "string" },
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "userEmail": {
+          "type": "string",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "submissionType": {
+          "type": "string",
+          "enum": [
+            "upload",
+            "manual"
+          ]
+        },
+        "prescriptionImage": {
+          "type": "string",
+          "format": "uri"
+        },
+        "medicinesText": {
+          "type": "string"
+        },
+        "deliveryLocation": {
+          "type": "string"
+        },
+        "deliveryTimeSlot": {
+          "type": "string"
+        },
+        "receiverName": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending-review",
+            "processed",
+            "rejected"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "orderId": {
+          "type": "string"
+        },
         "orderItems": {
           "type": "array",
-          "items": { "$ref": "#/entities/OrderItem" }
+          "items": {
+            "$ref": "#/entities/OrderItem"
+          }
         }
       },
-      "required": ["id", "userId", "userEmail", "submissionType", "deliveryLocation", "deliveryTimeSlot", "status", "createdAt"]
+      "required": [
+        "id",
+        "userId",
+        "userEmail",
+        "submissionType",
+        "deliveryLocation",
+        "deliveryTimeSlot",
+        "status",
+        "createdAt"
+      ]
     },
     "Complaint": {
-        "title": "Complaint",
-        "description": "Represents a customer complaint about an order.",
-        "type": "object",
-        "properties": {
-            "id": { "type": "string" },
-            "orderCode": { "type": "string" },
-            "complaint": { "type": "string" },
-            "userEmail": { "type": "string", "format": "email" },
-            "userName": { "type": "string" },
-            "createdAt": { "type": "string", "format": "date-time" },
-            "status": { "type": "string", "enum": ["open", "resolved"] },
-            "adminReply": { "type": "string" }
+      "title": "Complaint",
+      "description": "Represents a customer complaint about an order.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
         },
-        "required": ["id", "orderCode", "complaint", "userEmail", "userName", "createdAt", "status"]
+        "orderCode": {
+          "type": "string"
+        },
+        "complaint": {
+          "type": "string"
+        },
+        "userEmail": {
+          "type": "string",
+          "format": "email"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "open",
+            "resolved"
+          ]
+        },
+        "adminReply": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "orderCode",
+        "complaint",
+        "userEmail",
+        "userName",
+        "createdAt",
+        "status"
+      ]
     },
     "Coupon": {
-        "title": "Coupon",
-        "description": "Represents a discount coupon.",
-        "type": "object",
-        "properties": {
-            "code": { "type": "string" },
-            "usageLimit": { "type": "number" },
-            "timesUsed": { "type": "number" }
+      "title": "Coupon",
+      "description": "Represents a discount coupon.",
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
         },
-        "required": ["code", "usageLimit", "timesUsed"]
+        "usageLimit": {
+          "type": "number"
+        },
+        "timesUsed": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "code",
+        "usageLimit",
+        "timesUsed"
+      ]
     },
     "PrintRequest": {
       "title": "Print Request",
       "description": "Represents a user's request for printing services.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "phone": { "type": "string" },
-        "fileName": { "type": "string" },
-        "fileDataUrl": { "type": "string", "format": "uri" },
-        "printType": { "type": "string", "enum": ["bw", "color"] },
-        "pageCount": { "type": "number" },
-        "totalCost": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "printing", "completed", "rejected"] },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "pickupLocation": { "type": "string" },
-        "pickupTimeSlot": { "type": "string" }
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "userName": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "fileDataUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "printType": {
+          "type": "string",
+          "enum": [
+            "bw",
+            "color"
+          ]
+        },
+        "pageCount": {
+          "type": "number"
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "printing",
+            "completed",
+            "rejected"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "pickupLocation": {
+          "type": "string"
+        },
+        "pickupTimeSlot": {
+          "type": "string"
+        }
       },
-      "required": ["id", "userId", "userName", "phone", "fileName", "fileDataUrl", "printType", "pageCount", "totalCost", "status", "createdAt", "pickupLocation", "pickupTimeSlot"]
+      "required": [
+        "id",
+        "userId",
+        "userName",
+        "phone",
+        "fileName",
+        "fileDataUrl",
+        "printType",
+        "pageCount",
+        "totalCost",
+        "status",
+        "createdAt",
+        "pickupLocation",
+        "pickupTimeSlot"
+      ]
     }
   },
   "auth": {
@@ -425,7 +683,9 @@
         "path": "/orders/{orderId}",
         "definition": {
           "entityName": "Order",
-          "schema": { "$ref": "#/entities/Order" },
+          "schema": {
+            "$ref": "#/entities/Order"
+          },
           "description": "Stores all orders from all vendors."
         }
       },
@@ -433,7 +693,9 @@
         "path": "/medicineRequests/{requestId}",
         "definition": {
           "entityName": "MedicineRequest",
-          "schema": { "$ref": "#/entities/MedicineRequest" },
+          "schema": {
+            "$ref": "#/entities/MedicineRequest"
+          },
           "description": "Stores user-submitted requests for medicines."
         }
       },
@@ -441,7 +703,9 @@
         "path": "/complaints/{complaintId}",
         "definition": {
           "entityName": "Complaint",
-          "schema": { "$ref": "#/entities/Complaint" },
+          "schema": {
+            "$ref": "#/entities/Complaint"
+          },
           "description": "Stores user complaints regarding orders."
         }
       },
@@ -449,16 +713,20 @@
         "path": "/coupons/{couponId}",
         "definition": {
           "entityName": "Coupon",
-          "schema": { "$ref": "#/entities/Coupon" },
+          "schema": {
+            "$ref": "#/entities/Coupon"
+          },
           "description": "Stores discount coupon information."
         }
       },
       {
         "path": "/printRequests/{printRequestId}",
         "definition": {
-            "entityName": "PrintRequest",
-            "schema": { "$ref": "#/entities/PrintRequest" },
-            "description": "Stores user-submitted requests for printing."
+          "entityName": "PrintRequest",
+          "schema": {
+            "$ref": "#/entities/PrintRequest"
+          },
+          "description": "Stores user-submitted requests for printing."
         }
       }
     ],
