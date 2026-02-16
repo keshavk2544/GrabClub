@@ -38,17 +38,15 @@ function PaymentSuccessContent() {
     if (order.status === 'pending payment') {
       const finalizeOrder = async () => {
         try {
-          const updateData: Partial<Order> = { status: 'accepted' };
-          if (!order.verificationCode) {
-            updateData.verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
-          }
+          // Set status to 'pending' to allow vendor to confirm
+          const updateData: Partial<Order> = { status: 'pending' };
 
           await updateDoc(orderRef!, updateData);
           
           const itemsToDecrement = order.items.map(item => ({ productId: item.productId, quantity: item.quantity }));
           await decrementInventory(itemsToDecrement);
           
-          toast({ variant: 'success', title: 'Payment Successful!', description: "Your order has been confirmed and is being prepared." });
+          toast({ variant: 'success', title: 'Payment Successful!', description: "Your order has been sent to the vendor for confirmation." });
           setStatus('success');
         } catch (e) {
           console.error("Failed to finalize order:", e);
@@ -58,7 +56,7 @@ function PaymentSuccessContent() {
       };
 
       finalizeOrder();
-    } else if (order.status === 'accepted' || order.status === 'delivered') {
+    } else if (order.status === 'pending' || order.status === 'accepted' || order.status === 'delivered') {
       // Order already processed, maybe by a webhook or previous visit.
       setStatus('success');
     } else {
@@ -91,7 +89,7 @@ function PaymentSuccessContent() {
             Payment Successful!
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-            Your order has been confirmed. You can view its status in your active orders.
+            Your order is now awaiting vendor confirmation. You can view its status on the Orders page.
         </p>
         <Button onClick={() => router.push('/orders')} className="mt-8">
             View My Orders
