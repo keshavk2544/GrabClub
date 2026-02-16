@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -15,6 +16,7 @@ import { Loader2, Ticket, CheckCircle } from 'lucide-react';
 import { useUser } from '@/firebase/auth/use-user';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useProducts } from '@/hooks/use-products';
 
 export default function PaymentPage() {
   const params = useParams();
@@ -23,6 +25,7 @@ export default function PaymentPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { decrementInventory } = useProducts();
 
   const orderRef = useMemoFirebase(() => (firestore && orderId ? doc(firestore, 'orders', orderId) : null), [firestore, orderId]);
   const { data: order, isLoading: isOrderLoading, error } = useDoc<Order>(orderRef);
@@ -158,6 +161,9 @@ export default function PaymentPage() {
                 }
 
                 await updateDoc(orderRef, updateData);
+                
+                const itemsToDecrement = order.items.map(item => ({ productId: item.productId, quantity: item.quantity }));
+                await decrementInventory(itemsToDecrement);
                 
                 const toastMessage = "Your order has been confirmed and is being prepared.";
 

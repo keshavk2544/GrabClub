@@ -240,123 +240,32 @@ export default function CheckoutPage() {
             toast({ variant: "destructive", title: "Error", description: "Could not place your order." });
             setIsSubmitting(false);
         }
-
-        return;
-    }
-
-    const loadScript = (src: string) => {
-        return new Promise((resolve) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = () => {
-                resolve(true);
-            };
-            script.onerror = () => {
-                resolve(false);
-            };
-            document.body.appendChild(script);
-        });
-    };
-
-    const res = await loadScript('https://checkout.razorpay.com/v1/checkout.js');
-
-    if (!res) {
-        toast({
-            variant: 'destructive',
-            title: 'Payment Gateway Error',
-            description: 'Could not load the payment script. Please check your internet connection.',
-        });
-        setIsSubmitting(false);
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/razorpay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: total }),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Could not connect to payment gateway.');
-        }
-
-        const razorpayOrder = await response.json();
-
-        const options = {
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-            amount: razorpayOrder.amount.toString(),
-            currency: "INR",
-            name: "GrabClub",
-            description: `Payment for order from ${vendor.name}`,
-            order_id: razorpayOrder.id,
-            handler: async function (paymentResponse: any) {
-                const verifyRes = await fetch('/api/razorpay/verify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        razorpay_order_id: paymentResponse.razorpay_order_id,
-                        razorpay_payment_id: paymentResponse.razorpay_payment_id,
-                        razorpay_signature: paymentResponse.razorpay_signature,
-                    }),
-                });
-
-                if (!verifyRes.ok) {
-                    const errorData = await verifyRes.json().catch(() => ({}));
-                    throw new Error(errorData.error || 'Payment verification failed.');
-                }
-                
-                const newOrderData = createOrderObject();
-                const newOrder: Order = {
-                    ...newOrderData,
-                    id: `ORD-${Date.now()}`,
-                    orderTime: new Date(),
-                    verificationCode: Math.floor(1000 + Math.random() * 9000).toString(),
-                };
-
-                const orderRef = doc(firestore, 'orders', newOrder.id);
-                await setDoc(orderRef, newOrder);
-
-                const itemsToDecrement = cartItems.map(item => ({ productId: item.product.id, quantity: item.quantity }));
-                decrementInventory(itemsToDecrement);
-                clearCart();
-                window.localStorage.removeItem('grabclub-discount');
-
-                toast({ variant: 'success', title: 'Payment Successful!', description: 'Your order is awaiting vendor confirmation.' });
-                router.push('/orders');
-            },
-            prefill: {
-                name: user.displayName || '',
-                email: user.email || '',
-                contact: data.phone
-            },
-            theme: {
-                color: "#FE9D15"
-            },
-            modal: {
-                ondismiss: function() {
-                    setIsSubmitting(false);
-                    toast({ variant: 'destructive', title: 'Payment Cancelled', description: 'Your order was not placed.' });
-                }
-            }
+    } else { // Online Payment
+        const newOrderData = createOrderObject();
+        const newOrder: Order = {
+            ...newOrderData,
+            id: `ORD-${Date.now()}`,
+            orderTime: new Date(),
+            status: 'pending payment', // Override status for online payment
         };
 
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (paymentResponse: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Payment Failed',
-                description: paymentResponse.error.description || 'Please try again.',
-            });
-            setIsSubmitting(false);
-        });
-        rzp.open();
+        try {
+            if (!firestore) throw new Error("Firestore is not available.");
+            const orderRef = doc(firestore, 'orders', newOrder.id);
+            await setDoc(orderRef, newOrder);
 
-    } catch (error) {
-        console.error('Payment process failed:', error);
-        toast({ variant: "destructive", title: "Error", description: (error as Error).message });
-        setIsSubmitting(false);
+            // Clear the cart for the user. Inventory will be decremented after payment.
+            clearCart();
+            window.localStorage.removeItem('grabclub-discount');
+
+            // Redirect to the dedicated payment page
+            router.push(`/payment/${newOrder.id}`);
+
+        } catch (error) {
+            console.error('Order creation for online payment failed:', error);
+            toast({ variant: "destructive", title: "Error", description: "Could not proceed to payment." });
+            setIsSubmitting(false);
+        }
     }
   }
 
