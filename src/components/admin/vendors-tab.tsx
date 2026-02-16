@@ -247,23 +247,25 @@ export default function AdminVendorsTab() {
 
     const vendorRef = doc(firestore, 'vendors', editingVendor.id);
     
-    const updatedData = {
+    const updatedData: Record<string, any> = {
         name: values.name,
         description: values.description,
         userId: values.userId,
         password: values.password,
         deliveryType: values.deliveryType,
-        deliveryCharge: values.deliveryCharge,
         image: {
-            src: values.imageSrc || '',
-            alt: values.name || 'Vendor image',
+            src: String(values.imageSrc || ''),
+            alt: String(values.name || 'Vendor image'),
             width: editingVendor.image.width || 400,
             height: editingVendor.image.height || 300,
             hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : (editingVendor.image.hint || 'vendor'),
         }
     };
     
-    // Clean the object of any undefined values before sending to Firestore
+    if (values.deliveryCharge !== undefined) {
+      updatedData.deliveryCharge = values.deliveryCharge;
+    }
+    
     const cleanedUpdateData = removeUndefinedDeep(updatedData);
 
     await updateDoc(vendorRef, cleanedUpdateData);
@@ -287,12 +289,12 @@ export default function AdminVendorsTab() {
       category: addingToCategory.id,
       status: 'active' as const,
       deliveryType: values.deliveryType,
-      deliveryCharge: values.deliveryCharge,
+      deliveryCharge: values.deliveryCharge ?? 0,
       image: {
-        src: values.imageSrc || '',
+        src: String(values.imageSrc || ''),
         width: 400,
         height: 300,
-        alt: values.name || 'Vendor image',
+        alt: String(values.name || 'Vendor image'),
         hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : 'vendor',
       },
       openingTime: '09:00',
