@@ -22,8 +22,6 @@ import { products as initialProducts, vendors as initialVendors } from '@/lib/da
 import { useToast } from '@/hooks/use-toast';
 import GrabClubLoading from '@/components/layout/loading';
 
-const DB_VERSION = 2; // Increment this to force a re-seed if initial data changes.
-
 interface ProductsContextType {
   products: Product[];
   addProduct: (newProduct: Omit<Product, 'id' | 'image' | 'emoji'> & { image: { src: string, alt: string } }) => Promise<void>;
@@ -43,38 +41,42 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
 
   const seedDatabase = useCallback(async () => {
     if (!firestore) return;
-    console.log(`Seeding database with initial data (v${DB_VERSION})...`);
+    console.log(`Checking if database needs seeding...`);
     try {
-      const configRef = doc(firestore, '_internal', 'version');
-      
-      // Use merge:true to avoid overwriting unrelated fields if any
-      const vendorsBatch = writeBatch(firestore);
-      initialVendors.forEach(vendor => {
-        const vendorRef = doc(firestore, 'vendors', vendor.id);
-        vendorsBatch.set(vendorRef, vendor, { merge: true }); // Safer write
-      });
-      await vendorsBatch.commit();
-      
-      const productsBatch = writeBatch(firestore);
-      initialProducts.forEach(product => {
-        const productRef = doc(firestore, `vendors/${product.vendorId}/products`, product.id);
-        productsBatch.set(productRef, product, { merge: true }); // Safer write
-      });
-      await productsBatch.commit();
-      
-      // After successful seeding, set the version
-      await setDoc(configRef, { version: DB_VERSION });
-      
-      toast({
-        title: "Welcome!",
-        description: "Sample vendors and products have been added.",
-        variant: 'success',
-      });
+      const vendorsQuery = query(collection(firestore, 'vendors'), limit(1));
+      const vendorsSnapshot = await getDocs(vendorsQuery);
+
+      // Only seed if the vendors collection is empty.
+      if (vendorsSnapshot.empty) {
+        console.log('Vendors collection is empty. Seeding database...');
+        
+        const vendorsBatch = writeBatch(firestore);
+        initialVendors.forEach(vendor => {
+          const vendorRef = doc(firestore, 'vendors', vendor.id);
+          vendorsBatch.set(vendorRef, vendor);
+        });
+        await vendorsBatch.commit();
+        
+        const productsBatch = writeBatch(firestore);
+        initialProducts.forEach(product => {
+          const productRef = doc(firestore, `vendors/${product.vendorId}/products`, product.id);
+          productsBatch.set(productRef, product);
+        });
+        await productsBatch.commit();
+        
+        toast({
+          title: "Welcome!",
+          description: "Sample vendors and products have been added.",
+          variant: 'success',
+        });
+      } else {
+        console.log('Database already has data. Skipping seed.');
+      }
     } catch (error) {
-      console.error("Database seeding failed:", error);
+      console.error("Database seeding check failed:", error);
       toast({
-        title: "Seeding Failed",
-        description: "Could not add sample data.",
+        title: "Database Error",
+        description: "Could not check or add sample data.",
         variant: 'destructive',
       });
     }
@@ -91,13 +93,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
 
     const initialize = async () => {
       try {
-        // This is a much more robust way to check if seeding is needed.
-        const configRef = doc(firestore, '_internal', 'version');
-        const configSnap = await getDoc(configRef);
-        
-        if (!configSnap.exists() || configSnap.data().version < DB_VERSION) {
-          await seedDatabase();
-        }
+        await seedDatabase();
         
         const q = query(collectionGroup(firestore, 'products'));
         unsubscribe = onSnapshot(q, (snapshot) => {
