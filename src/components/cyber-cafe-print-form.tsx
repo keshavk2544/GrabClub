@@ -1,0 +1,447 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { useUser } from '@/firebase/auth/use-user';
+import type { PrintRequest } from '@/lib/types';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp"
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Upload, FileText, Loader2, Printer, CreditCard } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { vendors } from '@/lib/data';
+import GrabClubLoading from './layout/loading';
+import { useFirestore } from '@/firebase';
+import { addDoc, collection } from 'firebase/firestore';
+
+// Configure the worker source for pdf.js
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+}
+
+const printJobSchema = z.object({
+  file: z.any().refine(file => file instanceof File, { message: "A PDF file is required." }),
+  printType: z.enum(['bw', 'color']),
+  phone: z.string().regex(/^\d{10}$/, { message: 'Please enter a valid 10-digit phone number.' }),
+  pickupLocation: z.string({ required_error: 'Please select a pickup location.' }),
+  pickupTimeSlot: z.string({ required_error: 'Please select a pickup time slot.' }),
+});
+
+
+export default function CyberCafePrintForm() {
+    const { toast } = useToast();
+    const { user, isLoading: isUserLoading } = useUser();
+    const firestore = useFirestore();
+    const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
+    const [pageCount, setPageCount] = useState<number | null>(null);
+    const [totalCost, setTotalCost] = useState<number | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [vendorSettings, setVendorSettings] = useState<{deliveryLocations: string[], deliveryTimes: string[]}>({ deliveryLocations: [], deliveryTimes: [] });
+    const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+
+    const BW_COST = 5;
+    const COLOR_COST = 12;
+    const DELIVERY_FEE = 7;
+
+    const form = useForm<z.infer<typeof printJobSchema>>({
+      resolver: zodResolver(printJobSchema),
+      defaultValues: {
+        printType: 'bw',
+      }
+    });
+    
+    useEffect(() => {
+        const VENDOR_ID = 'cyber-cafe-services';
+        const defaultVendor = vendors.find(v => v.id === VENDOR_ID);
+
+        if (defaultVendor) {
+            setVendorSettings({
+                deliveryLocations: defaultVendor.deliveryLocations || [],
+                deliveryTimes: defaultVendor.deliveryTimes || [],
+            });
+        }
+        setIsSettingsLoading(false);
+    }, []);
+
+
+    const watchedPrintType = form.watch('printType');
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = event.target.files?.[0];
+
+        // Reset relevant fields
+        form.setValue('file', null);
+        setPageCount(null);
+        setTotalCost(null);
+        setFileDataUrl(null);
+
+        if (!selectedFile) {
+            if (event.target) event.target.value = '';
+            return;
+        }
+
+        if (selectedFile.type !== 'application/pdf') {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid File Type',
+                description: 'Please upload a valid PDF file.',
+            });
+            if (event.target) event.target.value = '';
+            return;
+        }
+
+        if (selectedFile.size > 750000) { // ~750KB to stay under 1MB data URL
+            toast({
+                variant: 'destructive',
+                title: 'File Too Large',
+                description: 'PDFs over 750KB are not supported. Please choose a smaller file.',
+            });
+            if (event.target) event.target.value = '';
+            return;
+        }
+
+        setIsProcessing(true);
+
+        try {
+            const arrayBuffer = await selectedFile.arrayBuffer();
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            setPageCount(pdf.numPages);
+            
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setFileDataUrl(reader.result as string);
+                form.setValue('file', selectedFile, { shouldValidate: true });
+                setIsProcessing(false);
+            };
+            reader.readAsDataURL(selectedFile);
+        } catch (error) {
+            console.error('Error parsing PDF:', error);
+            toast({
+                variant: 'destructive',
+                title: 'PDF Error',
+                description: 'Could not read the PDF file. Please try another one.',
+            });
+            if (event.target) event.target.value = '';
+            setIsProcessing(false);
+        }
+    };
+
+    useEffect(() => {
+        if (pageCount !== null) {
+            const costPerPage = watchedPrintType === 'bw' ? BW_COST : COLOR_COST;
+            setTotalCost(pageCount * costPerPage + DELIVERY_FEE);
+        } else {
+            setTotalCost(null);
+        }
+    }, [pageCount, watchedPrintType]);
+    
+    const onSubmit = async (data: z.infer<typeof printJobSchema>) => {
+        if (!data.file || pageCount === null || !user || !user.email || !fileDataUrl || totalCost === null) {
+           toast({ variant: 'destructive', title: 'Error', description: 'Please complete all fields.' });
+           return;
+        }
+
+        setIsSubmitting(true);
+        
+        const loadScript = (src: string) => {
+            return new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    resolve(true);
+                };
+                script.onerror = () => {
+                    resolve(false);
+                };
+                document.body.appendChild(script);
+            });
+        };
+
+        const res = await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+
+        if (!res) {
+            toast({
+                variant: 'destructive',
+                title: 'Payment Gateway Error',
+                description: 'Could not load the payment script. Please check your internet connection.',
+            });
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/razorpay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: totalCost }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Could not connect to payment gateway.');
+            }
+
+            const razorpayOrder = await response.json();
+
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+                amount: razorpayOrder.amount.toString(),
+                currency: "INR",
+                name: "GrabClub - Print Job",
+                description: `Payment for ${data.file.name}`,
+                order_id: razorpayOrder.id,
+                handler: async function (paymentResponse: any) {
+                    const verifyRes = await fetch('/api/razorpay/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            razorpay_order_id: paymentResponse.razorpay_order_id,
+                            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                            razorpay_signature: paymentResponse.razorpay_signature,
+                        }),
+                    });
+
+                    if (!verifyRes.ok) {
+                        const errorData = await verifyRes.json().catch(() => ({}));
+                        throw new Error(errorData.error || 'Payment verification failed.');
+                    }
+                    
+                    const newPrintRequest: Omit<PrintRequest, 'id'> = {
+                        userId: user.uid,
+                        userName: user.displayName || "Unknown User",
+                        phone: data.phone,
+                        fileName: data.file.name,
+                        fileDataUrl: fileDataUrl,
+                        printType: data.printType,
+                        pageCount: pageCount,
+                        totalCost: totalCost,
+                        status: 'pending',
+                        createdAt: new Date(),
+                        pickupLocation: data.pickupLocation,
+                        pickupTimeSlot: data.pickupTimeSlot,
+                    };
+
+                    if (!firestore) throw new Error("Firestore is not available.");
+                    await addDoc(collection(firestore, 'printRequests'), newPrintRequest);
+
+                    toast({
+                        variant: 'success',
+                        title: 'Payment Successful!',
+                        description: `Your print job has been submitted.`,
+                    });
+                    
+                    setIsSubmitting(false);
+                    form.reset();
+                    setPageCount(null);
+                    setTotalCost(null);
+                    setFileDataUrl(null);
+                    const fileInput = document.getElementById('pdf-file') as HTMLInputElement;
+                    if(fileInput) fileInput.value = '';
+                },
+                prefill: {
+                    name: user.displayName || '',
+                    email: user.email || '',
+                    contact: data.phone
+                },
+                theme: {
+                    color: "#FE9D15"
+                },
+                modal: {
+                    ondismiss: function() {
+                        setIsSubmitting(false);
+                        toast({ variant: 'destructive', title: 'Payment Cancelled', description: 'Your print job was not submitted.' });
+                    }
+                }
+            };
+
+            const rzp = new (window as any).Razorpay(options);
+            rzp.on('payment.failed', function (paymentResponse: any) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Payment Failed',
+                    description: paymentResponse.error.description || 'Please try again.',
+                });
+                setIsSubmitting(false);
+            });
+            rzp.open();
+
+        } catch (error) {
+            console.error('Payment process failed:', error);
+            toast({ variant: "destructive", title: "Error", description: (error as Error).message });
+            setIsSubmitting(false);
+        }
+    };
+    
+    if (isUserLoading || isSettingsLoading) return <GrabClubLoading />;
+
+
+    return (
+        <div className="container py-12 sm:py-16">
+            <div className="max-w-2xl mx-auto">
+                 <div className="text-center mb-8">
+                    <h1 className="text-3xl font-headline font-bold tracking-tight text-foreground sm:text-4xl">
+                        Cyber Services
+                    </h1>
+                    <p className="mt-2 text-muted-foreground">
+                        Upload your PDF to get it printed.
+                    </p>
+                </div>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>New Print Job</CardTitle>
+                        <CardDescription>Select a PDF and choose your print options.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                            <FormField
+                              control={form.control}
+                              name="file"
+                              render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Upload PDF</FormLabel>
+                                    <FormControl>
+                                      <Input id="pdf-file" type="file" onChange={handleFileChange} accept=".pdf" disabled={isProcessing || isSubmitting} />
+                                    </FormControl>
+                                    {form.getValues('file') && <FormDescription>Selected: {form.getValues('file').name}</FormDescription>}
+                                    <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            {isProcessing && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span>Processing PDF...</span>
+                                </div>
+                            )}
+
+                            {form.getValues('file') && pageCount !== null && (
+                                <div className="space-y-4 animate-[slideUpFade_0.3s_ease-out]">
+                                    <div className="p-3 rounded-md border bg-muted/30 flex items-center gap-3">
+                                       <FileText className="w-5 h-5 text-primary"/>
+                                       <div className="flex-1">
+                                            <p className="text-sm font-medium truncate">{form.getValues('file').name}</p>
+                                            <p className="text-xs text-muted-foreground">{pageCount} {pageCount > 1 ? 'pages' : 'page'} detected</p>
+                                       </div>
+                                    </div>
+                                    
+                                     <FormField
+                                        control={form.control}
+                                        name="phone"
+                                        render={({ field }) => (
+                                          <FormItem>
+                                            <FormLabel>Contact Number</FormLabel>
+                                            <FormControl>
+                                              <InputOTP maxLength={10} {...field}>
+                                                <InputOTPGroup className="flex-wrap justify-center">
+                                                  <InputOTPSlot index={0} />
+                                                  <InputOTPSlot index={1} />
+                                                  <InputOTPSlot index={2} />
+                                                  <InputOTPSlot index={3} />
+                                                  <InputOTPSlot index={4} />
+                                                  <InputOTPSlot index={5} />
+                                                  <InputOTPSlot index={6} />
+                                                  <InputOTPSlot index={7} />
+                                                  <InputOTPSlot index={8} />
+                                                  <InputOTPSlot index={9} />
+                                                </InputOTPGroup>
+                                              </InputOTP>
+                                            </FormControl>
+                                            <FormMessage />
+                                          </FormItem>
+                                        )}
+                                      />
+                                      
+                                    <FormField
+                                        control={form.control}
+                                        name="pickupLocation"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Pickup Location</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a pickup point" /></SelectTrigger></FormControl>
+                                                <SelectContent>{vendorSettings.deliveryLocations.map((location) => (<SelectItem key={location} value={location}>{location}</SelectItem>))}</SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="pickupTimeSlot"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                            <FormLabel>Preferred Pickup Time</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSubmitting}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="Select a time slot" /></SelectTrigger></FormControl>
+                                                <SelectContent>{vendorSettings.deliveryTimes.map((time) => (<SelectItem key={time} value={time}>{time}</SelectItem>))}</SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+
+                                    <FormField
+                                      control={form.control}
+                                      name="printType"
+                                      render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>Print Type</FormLabel>
+                                          <FormControl>
+                                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4" disabled={isSubmitting}>
+                                                <FormItem className="flex items-center space-x-2">
+                                                    <FormControl><RadioGroupItem value="bw" id="bw" /></FormControl>
+                                                    <Label htmlFor="bw">Black & White (₹{BW_COST}/page)</Label>
+                                                </FormItem>
+                                                <FormItem className="flex items-center space-x-2">
+                                                    <FormControl><RadioGroupItem value="color" id="color" /></FormControl>
+                                                    <Label htmlFor="color">Color (₹{COLOR_COST}/page)</Label>
+                                                </FormItem>
+                                            </RadioGroup>
+                                          </FormControl>
+                                        </FormItem>
+                                      )}
+                                    />
+                                    
+                                    {totalCost !== null && (
+                                        <div className="p-4 rounded-lg bg-card border shadow-inner">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <span className="font-medium text-lg">Total Cost:</span>
+                                                    <p className="text-xs text-muted-foreground">Includes ₹{DELIVERY_FEE.toFixed(2)} pickup charge</p>
+                                                </div>
+                                                <span className="text-2xl font-bold font-headline text-primary">₹{totalCost.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                </div>
+                            )}
+
+                            <Button type="submit" className="w-full" disabled={isSubmitting || !form.formState.isValid || isProcessing}>
+                                {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing Payment...</> : <><CreditCard className="mr-2 h-4 w-4" />Pay &amp; Submit Job</> }
+                            </Button>
+                        </form>
+                        </Form>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}

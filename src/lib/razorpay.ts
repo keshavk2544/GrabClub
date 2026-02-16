@@ -1,3 +1,17 @@
-// This file is intended for Razorpay integration.
-// The original content was lost and has been replaced with this placeholder.
-export {};
+import crypto from "crypto";
+
+export function verifyRazorpaySignature(params: {
+  orderId: string;
+  paymentId: string;
+  signature: string;
+  keySecret: string;
+}) {
+  const { orderId, paymentId, signature, keySecret } = params;
+
+  const generated = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+
+  return generated === signature;
+}

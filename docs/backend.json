@@ -1,0 +1,467 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User Profile",
+      "type": "object",
+      "description": "Stores public profile information for a user.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL for the user's profile picture."
+        },
+        "status": {
+          "type": "string",
+          "description": "The user's account status.",
+          "enum": [
+            "active",
+            "blocked"
+          ]
+        },
+        "fcmTokens": {
+          "type": "array",
+          "description": "Array of Firebase Cloud Messaging tokens for the user's devices.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "email"
+      ]
+    },
+    "Vendor": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Vendor",
+      "type": "object",
+      "description": "Represents a vendor selling items on the marketplace.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the vendor."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The user ID for the vendor to log in."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the vendor contact person."
+        },
+        "shopName": {
+          "type": "string",
+          "description": "The name of the vendor's shop."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the vendor and their offerings."
+        },
+        "address": {
+          "type": "string",
+          "description": "Physical address of the vendor's shop."
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Primary contact number of the vendor."
+        },
+        "altContactNumber": {
+          "type": "string",
+          "description": "Alternate contact number."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the vendor.",
+          "format": "email"
+        },
+        "paymentDetails": {
+          "type": "string",
+          "description": "UPI ID or bank account details for payments."
+        },
+        "deliveryCharge": {
+          "type": "number",
+          "description": "The delivery fee charged by the vendor. Overrides the default fee."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "shopName",
+        "description",
+        "address",
+        "contactNumber",
+        "email",
+        "paymentDetails"
+      ]
+    },
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a product listed on the marketplace.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the product."
+        },
+        "vendorId": {
+          "type": "string",
+          "description": "Reference to the Vendor who is selling this product. (Relationship: Vendor 1:N Product)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the product."
+        },
+        "image": {
+          "type": "object",
+          "description": "Image object for the product.",
+          "properties": {
+            "src": { "type": "string", "format": "uri" },
+            "width": { "type": "number" },
+            "height": { "type": "number" },
+            "alt": { "type": "string" },
+            "hint": { "type": "string" }
+          },
+          "required": ["src", "width", "height", "alt"]
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the product (e.g., food, grocery, medicine)."
+        },
+        "inventory": {
+          "type": "number",
+          "description": "Available stock of the product."
+        },
+        "quantityUnit": {
+          "type": "string",
+          "description": "The unit of measurement for the product quantity (e.g., '1 pc', '500 gm')."
+        },
+        "subCategory": {
+            "type": "string",
+            "description": "The sub-category of the product (e.g., 'pizza', 'dairy')."
+        },
+        "emoji": {
+            "type": "string",
+            "description": "An emoji representing the product."
+        },
+        "keywords": {
+            "type": "string",
+            "description": "Comma-separated keywords for searching."
+        },
+        "variants": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "price": { "type": "number" }
+                },
+                "required": ["name", "price"]
+            }
+        }
+      },
+      "required": [
+        "id",
+        "vendorId",
+        "name",
+        "image",
+        "price",
+        "category",
+        "inventory",
+        "quantityUnit"
+      ]
+    },
+    "DeliveryPerson": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Delivery Person",
+      "description": "Represents a delivery person for the service.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the delivery person."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The user ID for the delivery person to log in."
+        },
+        "password": {
+          "type": "string",
+          "description": "Password for the delivery person to log in."
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the delivery person."
+        },
+        "contactNumber": {
+          "type": "string",
+          "description": "Primary contact number."
+        },
+        "altContactNumber": {
+          "type": "string",
+          "description": "Alternate contact number."
+        },
+        "address": {
+          "type": "string",
+          "description": "Residential address of the delivery person."
+        },
+        "aadharPhotoUrl": {
+          "type": "string",
+          "description": "URL of the uploaded Aadhar card image.",
+          "format": "uri"
+        },
+        "vehicleNumber": {
+          "type": "string",
+          "description": "Vehicle registration number."
+        },
+        "paymentDetails": {
+          "type": "string",
+          "description": "UPI ID or bank account details for payments."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the delivery person.",
+          "enum": [
+            "active",
+            "inactive"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "name",
+        "contactNumber",
+        "password",
+        "status"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Represents a customer's order from a vendor.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "vendorId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerEmail": { "type": "string", "format": "email" },
+        "customerPhone": { "type": "string" },
+        "receiverName": { "type": "string" },
+        "requestId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "out for delivery", "delivered", "pending payment"] },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/entities/OrderItem" }
+        },
+        "total": { "type": "number" },
+        "deliveryLocation": { "type": "string" },
+        "deliveryTimeSlot": { "type": "string" },
+        "orderTime": { "type": "string", "format": "date-time" },
+        "verificationCode": { "type": "string" },
+        "deliveryPersonId": { "type": "string" },
+        "rejectionReason": { "type": "string" }
+      },
+      "required": ["id", "vendorId", "customerName", "status", "items", "total", "deliveryLocation", "orderTime"]
+    },
+    "OrderItem": {
+        "title": "Order Item",
+        "type": "object",
+        "properties": {
+            "productId": { "type": "string" },
+            "name": { "type": "string" },
+            "quantity": { "type": "number" },
+            "price": { "type": "number" }
+        },
+        "required": ["name", "quantity", "price"]
+    },
+    "MedicineRequest": {
+      "title": "Medicine Request",
+      "description": "Represents a user's request for medicines, either via prescription upload or text.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "submissionType": { "type": "string", "enum": ["upload", "manual"] },
+        "prescriptionImage": { "type": "string", "format": "uri" },
+        "medicinesText": { "type": "string" },
+        "deliveryLocation": { "type": "string" },
+        "deliveryTimeSlot": { "type": "string" },
+        "receiverName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending-review", "processed", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "orderId": { "type": "string" },
+        "orderItems": {
+          "type": "array",
+          "items": { "$ref": "#/entities/OrderItem" }
+        }
+      },
+      "required": ["id", "userId", "userEmail", "submissionType", "deliveryLocation", "deliveryTimeSlot", "status", "createdAt"]
+    },
+    "Complaint": {
+        "title": "Complaint",
+        "description": "Represents a customer complaint about an order.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "orderCode": { "type": "string" },
+            "complaint": { "type": "string" },
+            "userEmail": { "type": "string", "format": "email" },
+            "userName": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "status": { "type": "string", "enum": ["open", "resolved"] },
+            "adminReply": { "type": "string" }
+        },
+        "required": ["id", "orderCode", "complaint", "userEmail", "userName", "createdAt", "status"]
+    },
+    "Coupon": {
+        "title": "Coupon",
+        "description": "Represents a discount coupon.",
+        "type": "object",
+        "properties": {
+            "code": { "type": "string" },
+            "usageLimit": { "type": "number" },
+            "timesUsed": { "type": "number" }
+        },
+        "required": ["code", "usageLimit", "timesUsed"]
+    },
+    "PrintRequest": {
+      "title": "Print Request",
+      "description": "Represents a user's request for printing services.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "phone": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileDataUrl": { "type": "string", "format": "uri" },
+        "printType": { "type": "string", "enum": ["bw", "color"] },
+        "pageCount": { "type": "number" },
+        "totalCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "printing", "completed", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "pickupLocation": { "type": "string" },
+        "pickupTimeSlot": { "type": "string" }
+      },
+      "required": ["id", "userId", "userName", "phone", "fileName", "fileDataUrl", "printType", "pageCount", "totalCost", "status", "createdAt", "pickupLocation", "pickupTimeSlot"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "google.com"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/entities/UserProfile"
+          },
+          "description": "Stores user profile information. The document ID is the user's UID."
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}",
+        "definition": {
+          "entityName": "Vendor",
+          "schema": {
+            "$ref": "#/entities/Vendor"
+          },
+          "description": "Stores vendor information.  Vendor ID is used as the document ID."
+        }
+      },
+      {
+        "path": "/vendors/{vendorId}/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/entities/Product"
+          },
+          "description": "Stores product information for each vendor.  Uses vendorId from parent collection. Product ID is used as the document ID."
+        }
+      },
+      {
+        "path": "/deliveryPeople/{deliveryPersonId}",
+        "definition": {
+          "entityName": "DeliveryPerson",
+          "schema": {
+            "$ref": "#/entities/DeliveryPerson"
+          },
+          "description": "Stores information about delivery personnel. Delivery Person ID is used as the document ID."
+        }
+      },
+      {
+        "path": "/orders/{orderId}",
+        "definition": {
+          "entityName": "Order",
+          "schema": { "$ref": "#/entities/Order" },
+          "description": "Stores all orders from all vendors."
+        }
+      },
+      {
+        "path": "/medicineRequests/{requestId}",
+        "definition": {
+          "entityName": "MedicineRequest",
+          "schema": { "$ref": "#/entities/MedicineRequest" },
+          "description": "Stores user-submitted requests for medicines."
+        }
+      },
+      {
+        "path": "/complaints/{complaintId}",
+        "definition": {
+          "entityName": "Complaint",
+          "schema": { "$ref": "#/entities/Complaint" },
+          "description": "Stores user complaints regarding orders."
+        }
+      },
+      {
+        "path": "/coupons/{couponId}",
+        "definition": {
+          "entityName": "Coupon",
+          "schema": { "$ref": "#/entities/Coupon" },
+          "description": "Stores discount coupon information."
+        }
+      },
+      {
+        "path": "/printRequests/{printRequestId}",
+        "definition": {
+            "entityName": "PrintRequest",
+            "schema": { "$ref": "#/entities/PrintRequest" },
+            "description": "Stores user-submitted requests for printing."
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support a public-facing product marketplace with user authentication. The structure focuses on organizing public data for vendors and their products, while also storing user-specific data and information about delivery personnel.\\n\\nUsers:\\n*   User profiles are stored in a top-level `/users` collection, with the document ID being the user's UID.\\n\\nVendors and Products:\\n*   Vendors are stored in a top-level `/vendors` collection.\\n*   Products are stored as subcollections under each vendor (`/vendors/{vendorId}/products`). This reflects the Vendor 1:N Product relationship.\\n\\nDelivery People:\\n*   Delivery personnel are stored in a top-level `/deliveryPeople` collection.\\n\\nOrders and Requests: Orders, medicine requests, complaints, and coupons are all stored in their own top-level collections for easy querying by admins, vendors, and users."
+  }
+}

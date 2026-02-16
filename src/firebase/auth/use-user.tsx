@@ -1,26 +1,24 @@
 'use client';
+
 import { useState, useEffect } from 'react';
+import { User } from 'firebase/auth';
+import { useAuth } from '@/firebase/provider';
 
-// Mock user type. The real one might be more complex.
-type MockUser = {
-  uid: string;
-  email: string | null;
-  displayName?: string | null;
-} | null;
-
-// Mock implementation of useUser hook
-export const useUser = () => {
-  const [user, setUser] = useState<MockUser>(null);
+export function useUser() {
+  const auth = useAuth();
+  // Initialize user to null to ensure server and client have the same initial state.
+  // The useEffect will then update the user state on the client.
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // In this mock, we'll simulate a logged-in user after a short delay.
-    console.warn("Firebase (useUser) is not fully configured. Using mock user data.");
-    const timeout = setTimeout(() => {
-      setUser({ uid: 'mock-user-id', email: 'user@example.com', displayName: 'Mock User' });
-    }, 500);
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      setUser(user);
+      setIsLoading(false);
+    });
 
-    return () => clearTimeout(timeout);
-  }, []);
+    return () => unsubscribe();
+  }, [auth]);
 
-  return { user };
-};
+  return { user, isLoading };
+}

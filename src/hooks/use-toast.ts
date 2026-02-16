@@ -1,9 +1,15 @@
+"use client"
+
+// Inspired by react-hot-toast library
 import * as React from "react"
 
-import type { ToastActionElement, ToastProps } from "@/components/ui/toast"
+import type {
+  ToastActionElement,
+  ToastProps,
+} from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_REMOVE_DELAY = 1000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -22,27 +28,27 @@ const actionTypes = {
 let count = 0
 
 function genId() {
-  count = (count + 1) % Number.MAX_VALUE
+  count = (count + 1) % Number.MAX_SAFE_INTEGER
   return count.toString()
-  }
+}
 
-type ActionTyps = typeof actionTypes
+type ActionType = typeof actionTypes
 
 type Action =
   | {
-      type: ActionTyps["ADD_TOAST"]
+      type: ActionType["ADD_TOAST"]
       toast: ToasterToast
     }
   | {
-      type: ActionTyps["UPDATE_TOAST"]
+      type: ActionType["UPDATE_TOAST"]
       toast: Partial<ToasterToast>
     }
   | {
-      type: ActionTyps["DISMISS_TOAST"]
+      type: ActionType["DISMISS_TOAST"]
       toastId?: ToasterToast["id"]
     }
   | {
-      type: ActionTyps["REMOVE_TOAST"]
+      type: ActionType["REMOVE_TOAST"]
       toastId?: ToasterToast["id"]
     }
 
@@ -68,25 +74,12 @@ const addToRemoveQueue = (toastId: string) => {
   toastTimeouts.set(toastId, timeout)
 }
 
-  export const reducer = (state: State, action: Action): State => {
+export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":
-      if (TOAST_LIMIT > 0 && state.toasts.length >= TOAST_LIMIT) {
-        // Remove the oldest toast when the limit is reached
-        const oldestToastId = state.toasts[0].id;
-        if (toastTimeouts.has(oldestToastId)) {
-            clearTimeout(toastTimeouts.get(oldestToastId));
-            toastTimeouts.delete(oldestToastId);
-        }
-        return {
-          ...state,
-          toasts: [...state.toasts.slice(1), action.toast],
-        }
-      } else {
-        return {
-          ...state,
-          toasts: [action.toast, ...state.toasts],
-        }
+      return {
+        ...state,
+        toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT),
       }
 
     case "UPDATE_TOAST":
@@ -100,6 +93,8 @@ const addToRemoveQueue = (toastId: string) => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
+      // ! Side effects ! - This could be extracted into a dismissToast() action,
+      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -136,7 +131,7 @@ const addToRemoveQueue = (toastId: string) => {
 
 const listeners: Array<(state: State) => void> = []
 
-let memoryState = { toasts: [] }
+let memoryState: State = { toasts: [] }
 
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action)
@@ -147,7 +142,7 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast(props: Toast) {
+function toast({ ...props }: Toast) {
   const id = genId()
 
   const update = (props: ToasterToast) =>

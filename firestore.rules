@@ -1,0 +1,109 @@
+/**
+ * Core Philosophy:
+ * This ruleset enforces a security model for a marketplace with authenticated users and public data.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores private user data, only accessible by the owner.
+ * - /vendors/{vendorId}: Top-level collection for public vendor information.
+ * - /vendors/{vendorId}/products/{productId}: Subcollection for public product listings under each vendor.
+ * - /deliveryPeople/{deliveryPersonId}: Top-level collection for delivery personnel data.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // User Rules
+    // -------------------------------------------------------------------------
+    /**
+     * @description User-specific data. Only the authenticated user can read/write their own document.
+     * @path /users/{userId}
+     * @allow A logged-in user (read/write): `db.collection('users').doc(auth.uid).get()` or `.set()`
+     * @deny An unauthenticated user, or another user.
+     * @principle Enforces user data ownership.
+     */
+    match /users/{userId} {
+      // NOTE: Permissive for admin prototyping. In production, this should be restricted.
+      allow read, write: if true;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection Group Rules
+    // -------------------------------------------------------------------------
+    /**
+     * @description Allows public read access to all 'products' subcollections across the database.
+     * This is necessary for the collectionGroup query that fetches all products for the app.
+     * Writes are explicitly denied here and handled by more specific rules below.
+     * @path /{path=**}/products/{productId}
+     * @allow An unauthenticated user (list): `db.collectionGroup('products').get()`
+     * @deny All writes from the client at this general level.
+     * @principle Public read for marketplace data; writes should be handled by specific, more secure rules.
+     */
+    match /{path=**}/products/{productId} {
+      allow get, list: if true;
+      allow write: if false; 
+    }
+
+
+    // -------------------------------------------------------------------------
+    // Collection Rules
+    // NOTE: The following write rules are permissive for prototyping.
+    // For a production app, you should implement roles (e.g., via Custom Claims) 
+    // to check if a user is an admin or the specific vendor owner.
+    // -------------------------------------------------------------------------
+
+    /**
+     * @description Publicly readable vendor profiles.
+     * @path /vendors/{vendorId}
+     * @allow An unauthenticated user (get): `db.collection('vendors').doc('vendor_abc').get()`
+     * @allow An authenticated user (for admin dashboard functionality).
+     * @principle Public read for marketplace data; writes should be restricted.
+     */
+    match /vendors/{vendorId} {
+      allow get, list: if true;
+      allow create, update, delete: if true;
+    }
+    
+    /**
+     * @description This rule specifically allows authenticated users to manage products
+     * within a vendor's subcollection, overriding the general 'deny write' on the collection group.
+     * @path /vendors/{vendorId}/products/{productId}
+     * @allow An authenticated user (for vendor dashboard functionality).
+     */
+    match /vendors/{vendorId}/products/{productId} {
+      allow create, update, delete: if true;
+    }
+
+    /**
+     * @description Delivery personnel data. Reads are public for now.
+     * @path /deliveryPeople/{deliveryPersonId}
+     * @allow Public reads for now.
+     * @allow An authenticated user (for admin dashboard functionality).
+     * @principle Data should ideally be managed by a trusted admin backend.
+     */
+    match /deliveryPeople/{deliveryPersonId} {
+      allow get, list: if true;
+      allow create, update, delete: if true;
+    }
+
+    match /orders/{orderId} {
+      // NOTE: Permissive for prototyping. In production, this should be restricted.
+      allow read, write: if true;
+    }
+
+    match /medicineRequests/{requestId} {
+      // NOTE: Permissive for prototyping. In production, this should be restricted.
+      allow read, write: if true;
+    }
+
+    match /complaints/{complaintId} {
+      // NOTE: Permissive for prototyping.
+      allow read, write: if true;
+    }
+
+    match /coupons/{couponId} {
+      // NOTE: Permissive for prototyping.
+      allow read, write: if true;
+    }
+  }
+}

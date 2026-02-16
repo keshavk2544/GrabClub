@@ -1,5 +1,2 @@
-// Placeholder file. The original content was lost.
-export function NonBlockingLogin() {
-  console.warn("NonBlockingLogin is a placeholder component.");
-  return null;
-}
+'use client';
+// This file is intentionally left blank as all authentication features have been removed.
