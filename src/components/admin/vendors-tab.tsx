@@ -86,6 +86,7 @@ export default function AdminVendorsTab() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [addingToCategory, setAddingToCategory] = useState<{id: string, name: string} | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { toast } = useToast();
@@ -172,6 +173,21 @@ export default function AdminVendorsTab() {
     setIsEditDialogOpen(true);
   };
   
+  const handleOpenAddDialog = (category: {id: string, name: string}) => {
+    setAddingToCategory(category);
+    addForm.reset({
+      name: '',
+      description: '',
+      userId: '',
+      password: '',
+      imageSrc: '',
+      deliveryType: 'grabclub',
+      deliveryCharge: 50,
+    });
+    setImagePreview(null);
+    setIsAddDialogOpen(true);
+  };
+
   const handleDeleteClick = (vendor: Vendor) => {
     setVendorToDelete(vendor);
     setIsDeleteDialogOpen(true);
@@ -227,14 +243,14 @@ export default function AdminVendorsTab() {
   };
   
   const onAddSubmit = async (values: z.infer<typeof addVendorFormSchema>) => {
-    if (!firestore) return;
+    if (!firestore || !addingToCategory) return;
 
     const newVendorData: Omit<Vendor, 'id'> = {
       name: values.name,
       description: values.description,
       userId: values.userId,
       password: values.password,
-      category: 'food', // Hardcoded for now
+      category: addingToCategory.id,
       status: 'active',
       deliveryType: values.deliveryType,
       deliveryCharge: values.deliveryCharge,
@@ -256,21 +272,16 @@ export default function AdminVendorsTab() {
 
     toast({
       title: 'Vendor Added',
-      description: `${values.name} has been added to Food Services.`,
+      description: `${values.name} has been added to ${addingToCategory.name} Services.`,
     });
     setIsAddDialogOpen(false);
     addForm.reset();
     setImagePreview(null);
+    setAddingToCategory(null);
   };
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Food Vendor
-          </Button>
-      </div>
-
       {isLoading ? (
         <div className="space-y-2">
             <Skeleton className="h-12 w-full" />
@@ -278,7 +289,7 @@ export default function AdminVendorsTab() {
             <Skeleton className="h-12 w-full" />
         </div>
       ) : (
-        <Accordion type="multiple" className="w-full space-y-2">
+        <Accordion type="multiple" className="w-full space-y-2" defaultValue={['food']}>
             {vendorsByCategory.map(category => (
             <AccordionItem value={category.id} key={category.id} className={cn("bg-card/50 rounded-lg border", categoryColorClasses[category.id]?.item || 'border-border')}>
                 <AccordionTrigger className={cn(
@@ -331,13 +342,18 @@ export default function AdminVendorsTab() {
                 ) : (
                     <p className="text-muted-foreground text-center px-4">No vendors found in this category.</p>
                 )}
+                 <div className="mt-4 px-4">
+                    <Button variant="secondary" onClick={() => handleOpenAddDialog({id: category.id, name: category.name})}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Vendor to {category.name}
+                    </Button>
+                </div>
                 </AccordionContent>
             </AccordionItem>
             ))}
         </Accordion>
       )}
 
-      {/* Dialogs remain the same */}
+      {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
           if (!open) {
               setImagePreview(null);
@@ -420,16 +436,18 @@ export default function AdminVendorsTab() {
         </DialogContent>
       </Dialog>
       
+      {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
           if (!open) {
               addForm.reset();
               setImagePreview(null);
+              setAddingToCategory(null);
           }
           setIsAddDialogOpen(open);
       }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New Food Vendor</DialogTitle>
+            <DialogTitle>Add New {addingToCategory?.name} Vendor</DialogTitle>
           </DialogHeader>
           <Form {...addForm}>
             <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
