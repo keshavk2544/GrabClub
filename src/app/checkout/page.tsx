@@ -190,13 +190,18 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     const createOrderObject = () => {
-      const orderItems: OrderItem[] = cartItems.map(item => ({
-        productId: item.product.id,
-        name: item.variant ? `${item.product.name} (${item.variant.name})` : item.product.name,
-        quantity: item.quantity,
-        price: item.variant ? item.variant.price : item.product.price,
-        variantName: item.variant?.name,
-      }));
+      const orderItems: OrderItem[] = cartItems.map(item => {
+        const orderItem: OrderItem = {
+          productId: item.product.id,
+          name: item.variant ? `${item.product.name} (${item.variant.name})` : item.product.name,
+          quantity: item.quantity,
+          price: item.variant ? item.variant.price : item.product.price,
+        };
+        if (item.variant?.name) {
+          orderItem.variantName = item.variant.name;
+        }
+        return orderItem;
+      });
 
       const baseOrder: Omit<Order, 'id' | 'orderTime' | 'deliveryTimeSlot' | 'items'> & { items: OrderItem[], deliveryTimeSlot?: string } = {
           vendorId: vendor.id,
