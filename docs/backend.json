@@ -638,98 +638,62 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/entities/UserProfile"
-          },
-          "description": "Stores user profile information. The document ID is the user's UID."
-        }
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
       },
-      {
-        "path": "/vendors/{vendorId}",
-        "definition": {
-          "entityName": "Vendor",
-          "schema": {
-            "$ref": "#/entities/Vendor"
-          },
-          "description": "Stores vendor information.  Vendor ID is used as the document ID."
-        }
+      "description": "Stores user profile information. The document ID is the user's UID."
+    },
+    "/vendors/{vendorId}": {
+      "schema": {
+        "$ref": "#/entities/Vendor"
       },
-      {
-        "path": "/vendors/{vendorId}/products/{productId}",
-        "definition": {
-          "entityName": "Product",
-          "schema": {
-            "$ref": "#/entities/Product"
-          },
-          "description": "Stores product information for each vendor.  Uses vendorId from parent collection. Product ID is used as the document ID."
-        }
+      "description": "Stores vendor information.  Vendor ID is used as the document ID."
+    },
+    "/vendors/{vendorId}/products/{productId}": {
+      "schema": {
+        "$ref": "#/entities/Product"
       },
-      {
-        "path": "/deliveryPeople/{deliveryPersonId}",
-        "definition": {
-          "entityName": "DeliveryPerson",
-          "schema": {
-            "$ref": "#/entities/DeliveryPerson"
-          },
-          "description": "Stores information about delivery personnel. Delivery Person ID is used as the document ID."
-        }
+      "description": "Stores product information for each vendor.  Uses vendorId from parent collection. Product ID is used as the document ID."
+    },
+    "/deliveryPeople/{deliveryPersonId}": {
+      "schema": {
+        "$ref": "#/entities/DeliveryPerson"
       },
-      {
-        "path": "/orders/{orderId}",
-        "definition": {
-          "entityName": "Order",
-          "schema": {
-            "$ref": "#/entities/Order"
-          },
-          "description": "Stores all orders from all vendors."
-        }
+      "description": "Stores information about delivery personnel. Delivery Person ID is used as the document ID."
+    },
+    "/orders/{orderId}": {
+      "schema": {
+        "$ref": "#/entities/Order"
       },
-      {
-        "path": "/medicineRequests/{requestId}",
-        "definition": {
-          "entityName": "MedicineRequest",
-          "schema": {
-            "$ref": "#/entities/MedicineRequest"
-          },
-          "description": "Stores user-submitted requests for medicines."
-        }
+      "description": "Stores all orders from all vendors."
+    },
+    "/medicineRequests/{requestId}": {
+      "schema": {
+        "$ref": "#/entities/MedicineRequest"
       },
-      {
-        "path": "/complaints/{complaintId}",
-        "definition": {
-          "entityName": "Complaint",
-          "schema": {
-            "$ref": "#/entities/Complaint"
-          },
-          "description": "Stores user complaints regarding orders."
-        }
+      "description": "Stores user-submitted requests for medicines."
+    },
+    "/complaints/{complaintId}": {
+      "schema": {
+        "$ref": "#/entities/Complaint"
       },
-      {
-        "path": "/coupons/{couponId}",
-        "definition": {
-          "entityName": "Coupon",
-          "schema": {
-            "$ref": "#/entities/Coupon"
-          },
-          "description": "Stores discount coupon information."
-        }
+      "description": "Stores user complaints regarding orders."
+    },
+    "/coupons/{couponId}": {
+      "schema": {
+        "$ref": "#/entities/Coupon"
       },
-      {
-        "path": "/printRequests/{printRequestId}",
-        "definition": {
-          "entityName": "PrintRequest",
-          "schema": {
-            "$ref": "#/entities/PrintRequest"
-          },
-          "description": "Stores user-submitted requests for printing."
-        }
-      }
-    ],
+      "description": "Stores discount coupon information."
+    },
+    "/printRequests/{printRequestId}": {
+      "schema": {
+        "$ref": "#/entities/PrintRequest"
+      },
+      "description": "Stores user-submitted requests for printing."
+    },
     "reasoning": "The Firestore structure is designed to support a public-facing product marketplace with user authentication. The structure focuses on organizing public data for vendors and their products, while also storing user-specific data and information about delivery personnel.\\n\\nUsers:\\n*   User profiles are stored in a top-level `/users` collection, with the document ID being the user's UID.\\n\\nVendors and Products:\\n*   Vendors are stored in a top-level `/vendors` collection.\\n*   Products are stored as subcollections under each vendor (`/vendors/{vendorId}/products`). This reflects the Vendor 1:N Product relationship.\\n\\nDelivery People:\\n*   Delivery personnel are stored in a top-level `/deliveryPeople` collection.\\n\\nOrders and Requests: Orders, medicine requests, complaints, and coupons are all stored in their own top-level collections for easy querying by admins, vendors, and users."
   }
 }
+
+    
