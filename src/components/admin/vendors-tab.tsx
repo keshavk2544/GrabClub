@@ -82,22 +82,22 @@ const categoryColorClasses: { [key: string]: { trigger: string, item: string } }
  */
 function removeUndefinedDeep(obj: any): any {
   if (Array.isArray(obj)) {
-    return obj.map(removeUndefinedDeep).filter(v => v !== undefined);
-  } else if (typeof obj === 'object' && obj !== null) {
-    const newObj: { [key: string]: any } = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        const value = obj[key];
-        if (value !== undefined) {
-          const processedValue = removeUndefinedDeep(value);
-          if (processedValue !== undefined) {
-            newObj[key] = processedValue;
-          }
+    return obj.map(item => removeUndefinedDeep(item));
+  }
+  
+  if (obj !== null && typeof obj === 'object') {
+    return Object.keys(obj).reduce((acc, key) => {
+      const value = obj[key];
+      if (value !== undefined) {
+        const cleanedValue = removeUndefinedDeep(value);
+        if (cleanedValue !== undefined) {
+          (acc as any)[key] = cleanedValue;
         }
       }
-    }
-    return newObj;
+      return acc;
+    }, {});
   }
+
   return obj;
 }
 
@@ -255,9 +255,9 @@ export default function AdminVendorsTab() {
       image: {
           src: String(values.imageSrc || ''),
           alt: String(values.name || 'Vendor image'),
-          width: editingVendor.image.width || 400,
-          height: editingVendor.image.height || 300,
-          hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : (editingVendor.image.hint || 'vendor'),
+          width: editingVendor?.image?.width || 400,
+          height: editingVendor?.image?.height || 300,
+          hint: values.name ? values.name.toLowerCase().split(' ').slice(0, 2).join(' ') : (editingVendor?.image?.hint || 'vendor'),
       }
     };
     
