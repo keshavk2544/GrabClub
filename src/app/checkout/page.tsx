@@ -209,6 +209,7 @@ export default function CheckoutPage() {
           total: total,
           platformFee: subtotal > 0 ? PLATFORM_FEE : 0,
           deliveryLocation: showLocationDropdown ? data.deliveryLocation! : data.address!,
+          couponApplied: discountApplied,
       };
       if (vendor.deliveryType === 'grabclub' && data.deliveryTimeSlot) {
         baseOrder.deliveryTimeSlot = data.deliveryTimeSlot;

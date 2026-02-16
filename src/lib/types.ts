@@ -1,6 +1,7 @@
 
 
 
+
 export type Category = {
   id: string;
   name: string;
@@ -79,7 +80,7 @@ export type Order = {
   orderTime: Date;
   verificationCode?: string;
   deliveryPersonId?: string;
-  rejectionReason?: 'vendor_unavailable' | 'vendor_rejected' | 'payment_timed_out';
+  rejectionReason?: 'vendor_unavailable' | 'vendor_rejected' | 'payment_timed_out' | 'payment_cancelled_by_user';
   couponApplied?: boolean;
   couponCode?: string;
 };

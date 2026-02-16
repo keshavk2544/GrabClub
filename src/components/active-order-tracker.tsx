@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
@@ -135,7 +136,7 @@ export default function ActiveOrderTracker() {
     
     checkAndCleanupOldOrders(); // Initial check
 
-    return () => clearInterval(interval);
+    return () => clearInterval(intervalId);
   }, [checkAndCleanupOldOrders]);
 
   const allTrackedOrders = useMemo(() => {

@@ -34,6 +34,12 @@ export default function PaymentPage() {
   const [couponCode, setCouponCode] = useState('');
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
 
+  useEffect(() => {
+    if (order && order.couponCode) {
+      setCouponCode(order.couponCode);
+    }
+  }, [order]);
+
   const handleApplyCoupon = async () => {
     if (!order || !couponCode.trim() || !firestore) return;
     setIsApplyingCoupon(true);

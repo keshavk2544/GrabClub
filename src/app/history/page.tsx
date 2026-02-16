@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -252,6 +253,14 @@ function HistoryPageContent() {
                       <AlertTitle>Order Cancelled & Refund Pending</AlertTitle>
                       <AlertDescription>
                           {rejectionMessage} A total of <strong>₹{order.total.toFixed(2)}</strong> will be refunded to your account in 4-5 working days. We are trying to make it ASAP.
+                      </AlertDescription>
+                  </Alert>
+                ) : order.rejectionReason === 'payment_cancelled_by_user' || order.rejectionReason === 'payment_timed_out' ? (
+                  <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertTitle>Order Cancelled</AlertTitle>
+                      <AlertDescription>
+                          This order was cancelled because the payment was not completed.
                       </AlertDescription>
                   </Alert>
                 ) : order.verificationCode && (
