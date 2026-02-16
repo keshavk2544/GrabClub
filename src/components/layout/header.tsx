@@ -44,8 +44,6 @@ export default function Header() {
     return null; // No header on login or vendor/delivery dashboards
   }
 
-  const isHomePage = pathname === '/';
-
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 max-w-screen-2xl items-center">
@@ -79,12 +77,10 @@ export default function Header() {
               </div>
           ) : (
             <nav className="flex items-center space-x-2">
-              {!isHomePage && (
-                <div className="relative hidden md:block">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search products..." className="pl-9 w-64" />
-                </div>
-              )}
+              <div className="relative hidden md:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search products..." className="pl-9 w-64" />
+              </div>
               <UserNav />
             </nav>
           )}

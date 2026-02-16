@@ -3,13 +3,16 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/firebase/auth/use-user';
-import type { Order, Vendor, MedicineRequest } from '@/lib/types';
+import type { Order, Vendor, MedicineRequest, CartItem } from '@/lib/types';
+import { useProducts } from '@/hooks/use-products';
+import { useCartAnimation } from '@/context/cart-animation-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Package, CreditCard, CheckCircle } from 'lucide-react';
+import { Package, CreditCard, CheckCircle, Plus } from 'lucide-react';
 import GrabClubLoading from '@/components/layout/loading';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +25,10 @@ function OrdersPageContent() {
   const { user, isLoading: isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { products, isLoading: isProductsLoading } = useProducts();
+  const { replaceCart } = useCartAnimation();
+  const router = useRouter();
+
 
   const userOrdersQuery = useMemoFirebase(() => {
     if (!firestore || !user?.email) return null;
@@ -37,6 +44,41 @@ function OrdersPageContent() {
   
   const vendorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'vendors') : null, [firestore]);
   const { data: vendors, isLoading: vendorsLoading } = useCollection<Vendor>(vendorsQuery);
+
+  const handlePayNow = (order: Order) => {
+    if (isProductsLoading || !products) {
+        toast({
+            variant: "destructive",
+            title: "Please wait",
+            description: "Products are still loading.",
+        });
+        return;
+    }
+
+    const cartItemsFromOrder: CartItem[] = order.items.map(orderItem => {
+        const product = products.find(p => p.id === orderItem.productId);
+        if (!product) {
+            return null;
+        }
+        let variant;
+        if (orderItem.variantName) {
+            const allOptions = [{ name: product.quantityUnit, price: product.price }, ...(product.variants || [])];
+            variant = allOptions.find(v => v.name === orderItem.variantName);
+        }
+        return { product, quantity: orderItem.quantity, variant };
+    }).filter((item): item is CartItem => item !== null);
+
+    if (cartItemsFromOrder.length > 0) {
+        replaceCart(cartItemsFromOrder);
+        router.push('/checkout');
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Items unavailable',
+            description: 'Items from this order are no longer available.'
+        });
+    }
+  }
 
   const allActiveItems = useMemo(() => {
     const ordersWithMeta = (userOrders || []).map(o => ({
@@ -56,7 +98,7 @@ function OrdersPageContent() {
   }, [userOrders, userRequests]);
 
 
-  if (isUserLoading || ordersLoading || requestsLoading || vendorsLoading) {
+  if (isUserLoading || ordersLoading || requestsLoading || vendorsLoading || isProductsLoading) {
     return <GrabClubLoading />;
   }
 
@@ -215,11 +257,16 @@ function OrdersPageContent() {
                         </div>
                     }
                     <div className="flex justify-between items-center">
-                        <Button asChild size="sm">
-                        <Link href={`/payment/${order.id}`}>
-                            <CreditCard className="mr-2 h-4 w-4" /> Pay Now
-                        </Link>
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <Button asChild size="sm" variant="outline">
+                                <Link href={`/vendor/${order.vendorId}`}>
+                                    <Plus className="mr-2 h-4 w-4" /> Add Item
+                                </Link>
+                            </Button>
+                            <Button size="sm" onClick={() => handlePayNow(order)}>
+                                <CreditCard className="mr-2 h-4 w-4" /> Pay Now
+                            </Button>
+                        </div>
                         <div className="text-right">
                           <span className="text-xl font-bold font-headline">₹{order.total.toFixed(2)}</span>
                         </div>
