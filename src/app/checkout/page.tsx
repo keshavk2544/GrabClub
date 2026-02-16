@@ -260,16 +260,74 @@ export default function CheckoutPage() {
             const orderRef = doc(firestore, 'orders', newOrder.id);
             await setDoc(orderRef, newOrder);
 
-            // Clear the cart for the user. Inventory will be decremented after payment.
+            // Now, initiate payment immediately
+            const loadScript = (src: string) => {
+              return new Promise((resolve) => {
+                  const script = document.createElement('script');
+                  script.src = src;
+                  script.onload = () => { resolve(true); };
+                  script.onerror = () => { resolve(false); };
+                  document.body.appendChild(script);
+              });
+            };
+
+            const res = await loadScript('https://checkout.razorpay.com/v1/checkout.js');
+            if (!res) {
+                toast({ variant: 'destructive', title: 'Payment Gateway Error', description: 'Could not load payment script.' });
+                setIsSubmitting(false);
+                return;
+            }
+
+            const response = await fetch('/api/razorpay', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: newOrder.total }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Could not connect to payment gateway.');
+            }
+
+            const razorpayOrder = await response.json();
+            
+            const options = {
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+                amount: razorpayOrder.amount.toString(),
+                currency: "INR",
+                name: "GrabClub",
+                description: `Payment for Order #${newOrder.id.split('-').pop()}`,
+                order_id: razorpayOrder.id,
+                callback_url: `${window.location.origin}/api/razorpay/verify?order_id=${newOrder.id}`,
+                redirect: true,
+                prefill: {
+                    name: user?.displayName || '',
+                    email: user?.email || '',
+                    contact: newOrder.customerPhone,
+                },
+                theme: { color: "#FE9D15" },
+                modal: {
+                    ondismiss: function() {
+                        setIsSubmitting(false);
+                        toast({ variant: 'default', title: 'Payment Incomplete', description: 'Your order was created. You can complete the payment from the Orders page.' });
+                        router.push('/orders');
+                    }
+                }
+            };
+            
             clearCart();
             window.localStorage.removeItem('grabclub-discount');
 
-            // Redirect to the dedicated payment page
-            router.push(`/payment/${newOrder.id}`);
+            const rzp = new (window as any).Razorpay(options);
+            rzp.on('payment.failed', function () {
+                toast({ variant: 'destructive', title: 'Payment Failed', description: 'Please try again or contact support.' });
+                setIsSubmitting(false);
+            });
+            rzp.open();
 
         } catch (error) {
-            console.error('Order creation for online payment failed:', error);
-            toast({ variant: "destructive", title: "Error", description: "Could not proceed to payment." });
+            console.error('Order creation or payment failed:', error);
+            toast({ variant: "destructive", title: "Error", description: (error as Error).message || "Could not proceed to payment." });
             setIsSubmitting(false);
         }
     }
@@ -460,7 +518,7 @@ export default function CheckoutPage() {
 
                         <Button type="submit" disabled={isSubmitting || !isStoreOpen || isVendorInactive} className="place-order-btn">
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            <span>{isSubmitting ? 'Processing...' : 'Place Order'}</span>
+                            <span>{isSubmitting ? 'Processing...' : 'Proceed to Payment'}</span>
                         </Button>
                       </div>
                     </div>
