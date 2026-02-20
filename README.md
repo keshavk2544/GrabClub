@@ -3,3 +3,29 @@
 This is a NextJS starter in Firebase Studio.
 
 To get started, take a look at src/app/page.tsx.
+
+## Enabling Push Notifications
+
+This project is set up to use Firebase Cloud Messaging (FCM) to send push notifications to users about their order status. To fully enable this feature, follow these steps:
+
+1.  **Add your VAPID Key:**
+    *   Go to your [Firebase Project Settings](https://console.firebase.google.com/project/_/settings/cloudmessaging).
+    *   Under the "Web configuration" section, find the "Web Push certificates" tab.
+    *   Generate a key pair if you haven't already.
+    *   Copy the **Key pair** value.
+    *   Create a new file named `.env.local` in the root of your project (if it doesn't exist).
+    *   Add the following line to `.env.local`, replacing `YOUR_VAPID_KEY` with the key you copied:
+        ```
+        NEXT_PUBLIC_FIREBASE_VAPID_KEY=YOUR_VAPID_KEY
+        ```
+
+2.  **Deploy Cloud Functions:**
+    *   The backend logic for sending notifications is in the `functions` directory. You need to deploy it to Firebase.
+    *   Make sure you have the Firebase CLI installed (`npm install -g firebase-tools`).
+    *   Log in to Firebase (`firebase login`).
+    *   Run the following command from your project's root directory:
+        ```bash
+        firebase deploy --only functions
+        ```
+
+Once these steps are completed, your application will ask users for permission to send notifications when they log in. If they grant permission, they will receive updates on their order status.
