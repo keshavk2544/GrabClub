@@ -47,6 +47,7 @@ exports.sendVendorNewOrderNotification = functions.firestore
         body: `You have a new order from ${order.customerName}. Please respond.`,
         icon: "https://grabclub-nine.vercel.app/favicon.ico",
         click_action: `https://grabclub-nine.vercel.app`, // Generic link, vendor dashboards will handle routing
+        sound: '/sounds/new-order.mp3'
       },
       data: {
           orderId: orderId,
