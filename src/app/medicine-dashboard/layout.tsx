@@ -1,8 +1,10 @@
+
 'use client';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import MedicineHeader from '@/components/medicine/medicine-header';
 import { Toaster } from '@/components/ui/toaster';
+import VendorNotificationHandler from '@/components/vendor-notification-handler';
 
 export default function MedicineDashboardLayout({ children }: { children: React.ReactNode; }) {
   const router = useRouter();
@@ -25,6 +27,7 @@ export default function MedicineDashboardLayout({ children }: { children: React.
   return (
       <div className="flex flex-col min-h-screen bg-muted/40">
           <MedicineHeader />
+          <VendorNotificationHandler />
           <main className="flex-1 p-4 sm:p-6">{children}</main>
           <Toaster />
       </div>
