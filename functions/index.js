@@ -1,5 +1,5 @@
 
-const functions = require("firebase-functions");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -70,11 +70,14 @@ async function startVendorRinging(order, orderId, orderRef) {
 
 
 // This function is for newly created orders (e.g., Cash on Delivery).
-exports.onNewOrderCreated = functions.firestore
-  .document("orders/{orderId}")
-  .onCreate(async (snap, context) => {
+exports.onnewordercreated = onDocumentCreated("orders/{orderId}", async (event) => {
+    const snap = event.data;
+    if (!snap) {
+        console.log("No data associated with the event");
+        return;
+    }
     const order = snap.data();
-    const orderId = context.params.orderId;
+    const orderId = event.params.orderId;
 
     // Only ring for COD orders, which are created directly with 'pending' status.
     if (order && order.status === 'pending') {
@@ -85,22 +88,26 @@ exports.onNewOrderCreated = functions.firestore
     }
     
     return null;
-  });
+});
 
 
 // This function handles order updates, including payment completion and status changes.
-exports.onOrderUpdated = functions.firestore
-  .document("orders/{orderId}")
-  .onUpdate(async (change, context) => {
-    const newValue = change.after.data();
-    const previousValue = change.before.data();
-    const orderId = context.params.orderId;
+exports.onorderupdated = onDocumentUpdated("orders/{orderId}", async (event) => {
+    const snap = event.data;
+    if (!snap) {
+        console.log("No data associated with the event");
+        return;
+    }
+
+    const newValue = snap.after.data();
+    const previousValue = snap.before.data();
+    const orderId = event.params.orderId;
     
     // --- VENDOR NOTIFICATION LOGIC ---
     // This starts the ringing when an online payment is completed and status moves to 'pending'.
     if (newValue.status === 'pending' && previousValue.status !== 'pending') {
       console.log(`Online payment order ${orderId} is now pending. Starting ringing.`);
-      await startVendorRinging(newValue, orderId, change.after.ref);
+      await startVendorRinging(newValue, orderId, snap.after.ref);
     }
     
     // --- CUSTOMER NOTIFICATION LOGIC ---
@@ -174,4 +181,4 @@ exports.onOrderUpdated = functions.firestore
     };
 
     return admin.messaging().sendToDevice(tokens, payload);
-  });
+});
