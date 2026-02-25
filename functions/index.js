@@ -6,31 +6,25 @@ admin.initializeApp();
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// This function notifies the VENDOR when a NEW order is created.
-exports.sendVendorNewOrderNotification = functions.firestore
-  .document("orders/{orderId}")
-  .onCreate(async (snap, context) => {
-    const order = snap.data();
-    const orderId = context.params.orderId;
-
-    if (!order || order.status !== 'pending') {
-      console.log(`Order ${orderId} is not new or not pending. Skipping vendor notification.`);
-      return null;
-    }
-
+/**
+ * Sends repeated push notifications to a vendor for a new pending order
+ * to simulate a ringing effect.
+ * @param {object} order The order data.
+ * @param {string} orderId The ID of the order.
+ * @param {FirebaseFirestore.DocumentReference} orderRef Reference to the order document.
+ */
+async function startVendorRinging(order, orderId, orderRef) {
     const vendorId = order.vendorId;
     if (!vendorId) {
       console.log(`Order ${orderId} has no vendorId. Cannot notify vendor.`);
-      return null;
+      return;
     }
     
-    // Get vendor's FCM tokens
-    const vendorRef = admin.firestore().collection('vendors').doc(vendorId);
-    const vendorDoc = await vendorRef.get();
+    const vendorDoc = await admin.firestore().collection('vendors').doc(vendorId).get();
     
     if (!vendorDoc.exists) {
         console.log(`Vendor ${vendorId} not found.`);
-        return null;
+        return;
     }
 
     const vendorData = vendorDoc.data();
@@ -38,7 +32,7 @@ exports.sendVendorNewOrderNotification = functions.firestore
 
     if (!tokens || tokens.length === 0) {
       console.log(`Vendor ${vendorId} has no FCM tokens.`);
-      return null;
+      return;
     }
     
     const payload = {
@@ -46,22 +40,20 @@ exports.sendVendorNewOrderNotification = functions.firestore
         title: 'Nuovi ordini !!',
         body: `You have a new order from ${order.customerName}. Please respond.`,
         icon: "https://grabclub-nine.vercel.app/favicon.ico",
-        click_action: `https://grabclub-nine.vercel.app`, // Generic link, vendor dashboards will handle routing
+        click_action: `https://grabclub-nine.vercel.app`,
         sound: '/sounds/new-order.mp3'
       },
       data: {
           orderId: orderId,
-          // You can add more data here if needed by the app
       }
     };
     
-    // Simulate ringing by sending notifications repeatedly
     const MAX_DURATION_MINS = 3;
     const INTERVAL_SECONDS = 10;
     const iterations = (MAX_DURATION_MINS * 60) / INTERVAL_SECONDS;
 
     for (let i = 0; i < iterations; i++) {
-        const currentOrderSnap = await snap.ref.get();
+        const currentOrderSnap = await orderRef.get();
         const currentOrder = currentOrderSnap.data();
 
         if (currentOrder.status !== 'pending') {
@@ -74,27 +66,53 @@ exports.sendVendorNewOrderNotification = functions.firestore
 
         await sleep(INTERVAL_SECONDS * 1000);
     }
+}
+
+
+// This function is for newly created orders (e.g., Cash on Delivery).
+exports.onNewOrderCreated = functions.firestore
+  .document("orders/{orderId}")
+  .onCreate(async (snap, context) => {
+    const order = snap.data();
+    const orderId = context.params.orderId;
+
+    // Only ring for COD orders, which are created directly with 'pending' status.
+    if (order && order.status === 'pending') {
+      console.log(`New COD order ${orderId}. Starting ringing.`);
+      await startVendorRinging(order, orderId, snap.ref);
+    } else {
+      console.log(`Order ${orderId} created with status '${order.status}'. Not ringing vendor yet.`);
+    }
     
     return null;
   });
 
 
-// This function notifies the CUSTOMER when an order's status is updated.
-exports.sendCustomerOrderUpdateNotification = functions.firestore
+// This function handles order updates, including payment completion and status changes.
+exports.onOrderUpdated = functions.firestore
   .document("orders/{orderId}")
   .onUpdate(async (change, context) => {
     const newValue = change.after.data();
     const previousValue = change.before.data();
-
-    // Only send notification if the status has changed.
+    const orderId = context.params.orderId;
+    
+    // --- VENDOR NOTIFICATION LOGIC ---
+    // This starts the ringing when an online payment is completed and status moves to 'pending'.
+    if (newValue.status === 'pending' && previousValue.status !== 'pending') {
+      console.log(`Online payment order ${orderId} is now pending. Starting ringing.`);
+      await startVendorRinging(newValue, orderId, change.after.ref);
+    }
+    
+    // --- CUSTOMER NOTIFICATION LOGIC ---
     if (!newValue || !previousValue || newValue.status === previousValue.status) {
-      console.log("No status change, skipping notification.");
+      console.log("No status change, skipping customer notification.");
+      // We return here, but only after checking for the vendor ringing condition above.
       return null;
     }
 
     const customerEmail = newValue.customerEmail;
     if (!customerEmail) {
-      console.log("No customer email on order, cannot send notification.");
+      console.log("No customer email on order, cannot send customer notification.");
       return null;
     }
 
@@ -116,7 +134,6 @@ exports.sendCustomerOrderUpdateNotification = functions.firestore
       return null;
     }
 
-    // Customize the notification message based on the new status.
     let title = "GrabClub Order Update";
     let body = `The status of your order has been updated to ${newValue.status}.`;
 
@@ -151,11 +168,10 @@ exports.sendCustomerOrderUpdateNotification = functions.firestore
       notification: {
         title,
         body,
-        icon: "https://grabclub-nine.vercel.app/favicon.ico", // You can replace this with a full URL to your app's logo
-        click_action: `https://grabclub-nine.vercel.app/orders`, // IMPORTANT: Replace with your app's URL
+        icon: "https://grabclub-nine.vercel.app/favicon.ico",
+        click_action: `https://grabclub-nine.vercel.app/orders`,
       },
     };
 
-    // Send the notification to all of the user's registered devices.
     return admin.messaging().sendToDevice(tokens, payload);
   });
