@@ -1,37 +1,38 @@
-// This file must be in the public directory.
+// public/firebase-messaging-sw.js
 
-// Scripts for Firebase v9+ (the versions are compatible with your project's Firebase SDK)
-importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js');
+// Give the service worker access to Firebase Messaging.
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
-// IMPORTANT: This config object is a copy from your src/firebase/config.ts
-// It's necessary because Service Workers can't import modules directly.
-const firebaseConfig = {
-  "projectId": "studio-5955111434-37f1b",
-  "appId": "1:864443100893:web:86e84f9425772ef2a0b534",
+// Initialize the Firebase app in the service worker with your project's configuration.
+// This configuration is public and safe to include here.
+firebase.initializeApp({
   "apiKey": "AIzaSyCWHaLzCNm6Jhv-b0a-FtXUCqKGIctlORo",
   "authDomain": "studio-5955111434-37f1b.firebaseapp.com",
-  "measurementId": "",
-  "messagingSenderId": "864443100893"
-};
+  "projectId": "studio-5955111434-37f1b",
+  "messagingSenderId": "864443100893",
+  "appId": "1:864443100893:web:86e84f9425772ef2a0b534",
+});
 
-firebase.initializeApp(firebaseConfig);
-
-// Retrieve an instance of Firebase Messaging so that it can handle background
-// messages.
+// Retrieve an instance of Firebase Messaging so that it can handle background messages.
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+messaging.onBackgroundMessage((payload) => {
+  console.log(
+    '[firebase-messaging-sw.js] Received background message ',
+    payload
+  );
   
-  // Customize notification here
+  // The backend constructs the notification payload, including title, body, and icon.
+  // The service worker's primary job is to display it.
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
     icon: payload.notification.icon,
-    sound: payload.notification.sound, // This is the important part
+    // Note: The 'sound' property in the payload is a suggestion.
+    // Most browsers will play the default notification sound for background notifications,
+    // which creates the desired repeating alert effect.
   };
 
-  // The service worker needs to show the notification to the user.
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });

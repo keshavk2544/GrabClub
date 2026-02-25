@@ -13,8 +13,11 @@ export default function VendorNotificationHandler() {
 
     // Pre-load the audio element when the component mounts.
     useEffect(() => {
-        audioRef.current = new Audio('/sounds/new-order.mp3');
-        audioRef.current.loop = false; // We don't loop here; the repeated notifications create the effect.
+        // Ensure this only runs on the client
+        if (typeof window !== 'undefined') {
+            audioRef.current = new Audio('/sounds/new-order.mp3');
+            audioRef.current.loop = false; // We don't loop here; the repeated notifications create the effect.
+        }
     }, []);
 
     // 1. Request permission and save token on vendor login
@@ -36,8 +39,11 @@ export default function VendorNotificationHandler() {
                     description: payload.notification?.body,
                 });
 
-                // Manually play the sound for foreground notifications.
+                // Manually play the sound for foreground notifications if the file exists.
                 if (audioRef.current) {
+                    // Resetting currentTime ensures the sound plays from the beginning
+                    // for each "ding" of the simulated ringing.
+                    audioRef.current.currentTime = 0;
                     audioRef.current.play().catch(error => {
                         console.error('Error playing notification sound:', error);
                         // This can happen if the user hasn't interacted with the page yet.

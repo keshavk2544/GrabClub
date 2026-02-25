@@ -49,11 +49,15 @@ async function startVendorRinging(order, orderId, orderRef) {
     };
     
     const MAX_DURATION_MINS = 3;
-    const INTERVAL_SECONDS = 10;
+    const INTERVAL_SECONDS = 5; // Updated from 10 to 5
     const iterations = (MAX_DURATION_MINS * 60) / INTERVAL_SECONDS;
 
     for (let i = 0; i < iterations; i++) {
         const currentOrderSnap = await orderRef.get();
+        if (!currentOrderSnap.exists) {
+            console.log(`Order ${orderId} has been deleted. Stopping notifications.`);
+            break;
+        }
         const currentOrder = currentOrderSnap.data();
 
         if (currentOrder.status !== 'pending') {
@@ -62,7 +66,7 @@ async function startVendorRinging(order, orderId, orderRef) {
         }
 
         console.log(`Sending notification attempt ${i + 1} for order ${orderId} to vendor ${vendorId}`);
-        await admin.messaging().sendToDevice(tokens, payload);
+        await admin.messaging().sendToDevice(tokens, payload, { priority: 'high' });
 
         await sleep(INTERVAL_SECONDS * 1000);
     }
