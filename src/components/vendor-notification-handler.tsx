@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useFirestore } from '@/firebase';
 import { requestVendorPermissionAndSaveToken, setupOnMessageListener } from '@/firebase/messaging';
 import { useToast } from '@/hooks/use-toast';
@@ -9,6 +9,13 @@ import { useToast } from '@/hooks/use-toast';
 export default function VendorNotificationHandler() {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    // Pre-load the audio element when the component mounts.
+    useEffect(() => {
+        audioRef.current = new Audio('/sounds/new-order.mp3');
+        audioRef.current.loop = false; // We don't loop here; the repeated notifications create the effect.
+    }, []);
 
     // 1. Request permission and save token on vendor login
     useEffect(() => {
@@ -22,10 +29,21 @@ export default function VendorNotificationHandler() {
     useEffect(() => {
         const setupListener = async () => {
             const unsubscribe = await setupOnMessageListener((payload) => {
+                console.log('Foreground message received.', payload);
+                // Always show the toast notification.
                 toast({
                     title: payload.notification?.title,
                     description: payload.notification?.body,
                 });
+
+                // Manually play the sound for foreground notifications.
+                if (audioRef.current) {
+                    audioRef.current.play().catch(error => {
+                        console.error('Error playing notification sound:', error);
+                        // This can happen if the user hasn't interacted with the page yet.
+                        // The browser may block autoplay. The toast is a good fallback.
+                    });
+                }
             });
             return unsubscribe;
         };

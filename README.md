@@ -28,11 +28,11 @@ This project is set up to use Firebase Cloud Messaging (FCM) to send push notifi
         firebase deploy --only functions
         ```
 
-3.  **(Optional) Add a Custom Ringing Sound for Vendors:**
-    *   To make new order alerts more distinct for vendors, you can provide a custom sound file that will play repeatedly.
+3.  **Add a Custom Ringing Sound for Vendors:**
+    *   To make new order alerts more distinct for vendors, you must provide a custom sound file.
     *   Create a new directory named `sounds` inside your `public` folder.
     *   Place your desired sound file in this new directory. The app is configured to look for a file named `new-order.mp3`.
-    *   Your final file path should be: `public/sounds/new-order.mp3`.
+    *   **Crucially, the final file path must be exactly `public/sounds/new-order.mp3`.**
     *   If this file is present, it will be used for the repeating "ring" notification for vendors. If it's not found, a default notification sound will be used.
 
-Once these steps are completed, your application will ask users for permission to send notifications when they log in. If they grant permission, they will receive updates on their order status.
+Once these steps are completed, your application will ask users and vendors for permission to send notifications when they log in. If they grant permission, they will receive updates and alerts.

@@ -1,9 +1,11 @@
-// Using compat scripts for easier service worker implementation.
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+// This file must be in the public directory.
 
-// IMPORTANT: This config is duplicated from src/firebase/config.ts
-// If you change your Firebase project, you must update this config as well.
+// Scripts for Firebase v9+ (the versions are compatible with your project's Firebase SDK)
+importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.3/firebase-messaging-compat.js');
+
+// IMPORTANT: This config object is a copy from your src/firebase/config.ts
+// It's necessary because Service Workers can't import modules directly.
 const firebaseConfig = {
   "projectId": "studio-5955111434-37f1b",
   "appId": "1:864443100893:web:86e84f9425772ef2a0b534",
@@ -15,61 +17,21 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 
+// Retrieve an instance of Firebase Messaging so that it can handle background
+// messages.
 const messaging = firebase.messaging();
 
-// Handle incoming messages when the app is in the background or closed
-messaging.onBackgroundMessage((payload) => {
-  console.log(
-    "[firebase-messaging-sw.js] Received background message ",
-    payload
-  );
-
-  // Customize the notification here
+messaging.onBackgroundMessage(function(payload) {
+  console.log('[firebase-messaging-sw.js] Received background message ', payload);
+  
+  // Customize notification here
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: payload.notification.icon || '/favicon.ico',
-    // Store the click action URL in the notification data
-    data: {
-        url: payload.fcmOptions.link 
-    }
+    icon: payload.notification.icon,
+    sound: payload.notification.sound, // This is the important part
   };
 
-  return self.registration.showNotification(
-    notificationTitle,
-    notificationOptions
-  );
-});
-
-// Handle notification click
-self.addEventListener('notificationclick', (event) => {
-  console.log('[firebase-messaging-sw.js] Notification clicked: ', event.notification);
-  
-  event.notification.close();
-
-  // This looks for an open window with the same URL and focuses it.
-  // If no window is open, it opens a new one.
-  event.waitUntil(
-    clients.matchAll({
-      type: "window",
-      includeUncontrolled: true,
-    }).then((clientList) => {
-      const urlToOpen = event.notification.data.url;
-      if (clientList.length > 0) {
-        let client = clientList[0];
-        for (let i = 0; i < clientList.length; i++) {
-          if (clientList[i].focused) {
-            client = clientList[i];
-          }
-        }
-        if (urlToOpen) {
-          return client.focus().then(cli => cli.navigate(urlToOpen));
-        }
-        return client.focus();
-      }
-      if (urlToOpen) {
-        return clients.openWindow(urlToOpen);
-      }
-    })
-  );
+  // The service worker needs to show the notification to the user.
+  return self.registration.showNotification(notificationTitle, notificationOptions);
 });
