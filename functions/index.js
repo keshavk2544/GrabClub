@@ -41,7 +41,6 @@ async function startVendorRinging(order, orderId, orderRef) {
         body: `You have a new order from ${order.customerName}. Please respond.`,
         icon: "https://grabclub-nine.vercel.app/favicon.ico",
         click_action: `https://grabclub-nine.vercel.app`,
-        sound: '/sounds/new-order.mp3'
       },
       data: {
           orderId: orderId,
@@ -49,7 +48,7 @@ async function startVendorRinging(order, orderId, orderRef) {
     };
     
     const MAX_DURATION_MINS = 3;
-    const INTERVAL_SECONDS = 5; // Updated from 10 to 5
+    const INTERVAL_SECONDS = 5;
     const iterations = (MAX_DURATION_MINS * 60) / INTERVAL_SECONDS;
 
     for (let i = 0; i < iterations; i++) {

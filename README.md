@@ -37,11 +37,16 @@ The backend logic for sending all notifications is in the `functions` directory.
 
 ### 3. Add the Custom Ringing Sound (Crucial for Vendors)
 
-To make new order alerts more distinct for vendors, you **must** provide a custom sound file. Without this file, vendors will only hear their device's default notification sound.
+The notification system is designed to simulate a ringing phone by sending repeated alerts.
+
+*   **When the app is in the background or closed:** The vendor's device will play its **default notification sound** every 5 seconds.
+*   **When the vendor's dashboard is open:** The app will attempt to play a custom sound file. To enable this, you **must** provide the sound file.
+
+To add the custom foreground sound:
 
 *   In your `public` folder, create a **new directory** named `sounds`.
 *   Place your desired sound file inside this new directory.
 *   **IMPORTANT:** You must name the file `new-order.mp3`.
 *   The final, exact file path must be `public/sounds/new-order.mp3`.
 
-If this file is present, it will be used for the repeating "ring" notification for vendors when their dashboard is open. If it's not found, only default sounds will play.
+If this file is present, it will be used for the repeating "ring" notification when the vendor's dashboard is open. If it's not found, no sound will play when the dashboard is open.
